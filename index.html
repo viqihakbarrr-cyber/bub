@@ -3,514 +3,516 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cosmic Pop Duo</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <title>Multiplayer Platformer 2D</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-            touch-action: none; /* Mencegah zoom/scroll saat main */
-            user-select: none;
-        }
+        * { box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: white; font-family: 'Arial', sans-serif; }
+        
+        /* CANVAS GAME */
+        canvas { display: block; width: 100%; height: 100%; }
 
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #000;
-            color: #fff;
-            font-family: 'Courier New', Courier, monospace;
-            overflow: hidden;
-            height: 100vh;
-            width: 100vw;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        /* UI LAYER */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        /* LOBBY SCREEN */
+        #lobby { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: white; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; pointer-events: auto; z-index: 10;
         }
+        input { padding: 10px; font-size: 16px; margin: 10px; text-align: center; border: 2px solid #333; border-radius: 8px; width: 200px; }
+        button { padding: 12px 24px; font-size: 18px; margin: 5px; background: #333; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        button:active { background: #555; }
+        .hidden { display: none !important; }
+        #status { margin-top: 10px; color: #666; font-size: 14px; }
+        
+        /* IN GAME HUD */
+        #hud { position: absolute; top: 10px; left: 10px; z-index: 5; display: flex; gap: 20px; }
+        .hp-container { width: 150px; height: 20px; background: #ddd; border: 2px solid #333; position: relative; }
+        .hp-bar { width: 100%; height: 100%; background: #ff3333; transition: width 0.2s; }
+        .name-tag { position: absolute; top: -20px; left: 0; font-weight: bold; color: #333; font-size: 12px; }
 
-        /* UI SCREENS */
-        .screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10;
-            background: #000;
-            transition: opacity 0.5s;
+        /* CONTROLS */
+        .controls-area { position: absolute; bottom: 20px; pointer-events: auto; display: flex; gap: 15px; }
+        #controls-left { left: 20px; }
+        #controls-right { right: 20px; }
+        
+        .btn { 
+            width: 60px; height: 60px; background: rgba(0,0,0,0.1); 
+            border: 2px solid #333; border-radius: 50%; 
+            display: flex; justify-content: center; align-items: center; 
+            font-weight: bold; font-size: 20px; color: #333;
         }
+        .btn:active { background: rgba(0,0,0,0.3); }
 
-        .hidden {
-            display: none !important;
-        }
-
-        h1 {
-            text-shadow: 0 0 10px #bd00ff, 0 0 20px #00ffff;
-            font-size: 2rem;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-
-        button {
-            background: transparent;
-            border: 2px solid #00ffff;
-            color: #00ffff;
-            padding: 15px 30px;
-            font-size: 1.2rem;
-            margin: 10px;
-            cursor: pointer;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
-            font-family: inherit;
-            transition: 0.2s;
-        }
-
-        button:active {
-            background: #00ffff;
-            color: #000;
-        }
-
-        input {
-            background: #111;
-            border: 2px solid #bd00ff;
-            color: #fff;
-            padding: 15px;
-            font-size: 1.5rem;
-            text-align: center;
-            letter-spacing: 5px;
-            width: 200px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            outline: none;
-        }
-
-        /* ROOM INFO */
-        #room-code-display {
-            font-size: 3rem;
-            color: #bd00ff;
-            font-weight: bold;
-            letter-spacing: 10px;
-            margin: 20px 0;
-            text-shadow: 0 0 20px #bd00ff;
-        }
-
-        .loading-text {
-            font-size: 0.9rem;
-            color: #888;
-            margin-top: 10px;
-            animation: pulse 1.5s infinite;
-        }
-
-        /* FULLSCREEN BTN */
-        .fs-btn {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            font-size: 0.8rem;
-            padding: 10px;
-            border-color: #666;
-            color: #666;
-        }
-
-        /* GAME AREA */
-        #game-area {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 5;
-            overflow: hidden;
-        }
-
-        /* HUD */
-        #hud {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 20;
-            font-size: 1.5rem;
-            pointer-events: none;
-        }
-
-        #timer {
-            color: #ff0055;
-            font-weight: bold;
-        }
-
-        #role-indicator {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #aaa;
-            font-size: 0.8rem;
-            z-index: 20;
-            pointer-events: none;
-        }
-
-        /* BUBBLES */
-        .bubble {
-            position: absolute;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.9), rgba(0,255,255,0.6), rgba(189,0,255,0.8));
-            box-shadow: 0 0 15px #00ffff, 0 0 30px #bd00ff;
-            cursor: pointer;
-            transform: translate(-50%, -50%);
-            animation: spawnPop 0.3s ease-out;
-        }
-
-        @keyframes spawnPop {
-            0% { transform: translate(-50%, -50%) scale(0); }
-            80% { transform: translate(-50%, -50%) scale(1.1); }
-            100% { transform: translate(-50%, -50%) scale(1); }
-        }
-
-        @keyframes pulse {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
-        }
-
+        /* LOADING */
+        #loader { position: absolute; top:0; left:0; width:100%; height:100%; background:white; z-index: 20; display:flex; justify-content:center; align-items:center; flex-direction: column;}
     </style>
 </head>
 <body>
 
-    <div id="screen-menu" class="screen">
-        <h1>COSMIC DUO</h1>
-        <button onclick="setupHost()">CREATE ROOM</button>
-        <button onclick="showJoinUI()">JOIN ROOM</button>
-        <button class="fs-btn" onclick="toggleFullscreen()">[ ] Fullscreen</button>
+    <div id="loader">
+        <h2>Memuat Aset...</h2>
+        <p id="load-progress">0%</p>
     </div>
 
-    <div id="screen-host" class="screen hidden">
-        <p>KODE PAIRING ANDA</p>
-        <div id="room-code-display">...</div>
-        <p class="loading-text">Menunggu Player 2...</p>
-        <button class="fs-btn" onclick="toggleFullscreen()">[ ] Fullscreen</button>
+    <div id="lobby">
+        <h1>BATTLE 2D</h1>
+        <input type="text" id="username" placeholder="Nama (Max 10)" maxlength="10">
+        <div id="menu-buttons">
+            <button onclick="startGame('host')">Buat Room</button>
+            <button onclick="showJoin()">Gabung Room</button>
+        </div>
+        <div id="join-area" class="hidden">
+            <input type="text" id="room-id-input" placeholder="Masukkan ID Room Teman">
+            <button onclick="startGame('join')">Masuk</button>
+            <button onclick="backToMenu()" style="background:#888;">Kembali</button>
+        </div>
+        <div id="waiting-area" class="hidden">
+            <p>Menunggu lawan...</p>
+            <p>Bagikan ID ini ke teman:</p>
+            <h2 id="my-room-id" style="user-select: text; border: 1px dashed #333; padding: 5px;">...</h2>
+        </div>
+        <p id="status"></p>
     </div>
 
-    <div id="screen-join" class="screen hidden">
-        <p>MASUKKAN KODE 6 DIGIT</p>
-        <input type="number" id="join-input" placeholder="000000" oninput="limitInput(this)">
-        <button onclick="connectToHost()">CONNECT</button>
-        <button onclick="backToMenu()" style="border-color:#555; color:#555;">BACK</button>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer" class="hidden">
+        <div id="hud">
+            <div>
+                <div class="name-tag" id="p1-name">Player 1</div>
+                <div class="hp-container"><div class="hp-bar" id="p1-hp"></div></div>
+            </div>
+            <div id="p2-hud" style="opacity: 0.5;">
+                <div class="name-tag" id="p2-name">Player 2</div>
+                <div class="hp-container"><div class="hp-bar" id="p2-hp"></div></div>
+            </div>
+        </div>
+
+        <div id="controls-left" class="controls-area">
+            <div class="btn" id="btn-left">←</div>
+            <div class="btn" id="btn-right">→</div>
+        </div>
+        <div id="controls-right" class="controls-area">
+            <div class="btn" id="btn-dash" style="background:rgba(255, 200, 0, 0.2);">Dash</div>
+            <div class="btn" id="btn-jump">Jump</div>
+        </div>
     </div>
 
-    <div id="screen-game" class="screen hidden" style="background: transparent; pointer-events: none;">
-        <div id="hud">WAKTU: <span id="timer">280</span></div>
-        <div id="role-indicator">...</div>
-    </div>
+<script>
+/**
+ * KONFIGURASI DAN URL ASSET
+ */
+const ASSETS = {
+    idle: [
+        '0001_0.png','0002_8.png','0003_8.png','0004_9.png','0005_8.png','0006_8.png','0007_9.png','0008_8.png','0009_9.png','0010_9.png',
+        '0011_8.png','0012_8.png','0013_9.png','0014_8.png','0015_8.png','0016_9.png','0017_8.png','0018_8.png','0019_9.png','0020_8.png'
+    ].map(f => `https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/${f}`),
+    
+    walk: [
+        '0001_0.png','0002_8.png','0003_8.png','0004_9.png','0005_8.png','0006_8.png','0007_9.png','0008_8.png','0009_8.png','0010_9.png','0011_8.png'
+    ].map(f => `https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/${f}`),
+    
+    jump: [
+        '0001_0.png','0002_8.png','0003_8.png'
+    ].map(f => `https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Jump/${f}`)
+};
 
-    <div id="game-area" class="hidden"></div>
+const sprites = { idle: [], walk: [], jump: [] };
+let imagesLoaded = 0;
+const totalImages = ASSETS.idle.length + ASSETS.walk.length + ASSETS.jump.length;
 
-    <script>
-        // --- CONFIG & STATE ---
-        let peer = null;
-        let conn = null;
-        let myRole = ''; // 'host' (P1) or 'client' (P2)
-        let gameActive = false;
-        let timeLeft = 280;
-        let gameLoopId;
-        let bubbles = []; // Array to store bubble DOM elements for Client
+// Preload Images
+function loadImages() {
+    const loadGroup = (groupName, urls) => {
+        urls.forEach(url => {
+            const img = new Image();
+            img.src = url;
+            img.onload = () => {
+                imagesLoaded++;
+                document.getElementById('load-progress').innerText = Math.floor((imagesLoaded/totalImages)*100) + '%';
+                if(imagesLoaded === totalImages) {
+                    document.getElementById('loader').style.display = 'none';
+                }
+            };
+            sprites[groupName].push(img);
+        });
+    };
+    loadGroup('idle', ASSETS.idle);
+    loadGroup('walk', ASSETS.walk);
+    loadGroup('jump', ASSETS.jump);
+}
+loadImages();
+
+/**
+ * LOGIKA GAME & FISIKA
+ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let screenWidth = window.innerWidth;
+let screenHeight = window.innerHeight;
+canvas.width = screenWidth;
+canvas.height = screenHeight;
+
+// Variabel Global
+const GRAVITY = 0.8;
+const FLOOR_Y = screenHeight - 50; // Lantai sedikit di atas bawah layar
+const PLAYER_SIZE = 120; // Ukuran render karakter
+
+// Input State
+const keys = { left: false, right: false, jump: false, dash: false };
+
+class Player {
+    constructor(isLocal) {
+        this.isLocal = isLocal;
+        this.x = isLocal ? 100 : screenWidth - 200;
+        this.y = FLOOR_Y - PLAYER_SIZE;
+        this.vx = 0;
+        this.vy = 0;
+        this.width = PLAYER_SIZE;
+        this.height = PLAYER_SIZE;
+        this.speed = 5;
+        this.jumpPower = -18;
+        this.grounded = false;
+        this.facingRight = isLocal; // P1 hadap kanan, P2 hadap kiri
         
-        // Prefix ID unik agar tidak bentrok di server public PeerJS
-        const APP_PREFIX = 'cosmic-game-v1-'; 
+        // Stats
+        this.hp = 100;
+        this.name = "Player";
+        
+        // Animasi
+        this.state = 'idle'; // idle, walk, jump
+        this.frame = 0;
+        this.animTimer = 0;
+        
+        // Dash
+        this.isDashing = false;
+        this.dashCooldown = false;
+        this.dashGhosts = []; // Array untuk after-image
+    }
 
-        // --- AUDIO (Optional Synthesis) ---
-        function playSound(type) {
-            // Simple beep logic using Web Audio API could go here, 
-            // but kept silent for simplicity as requested just visual code.
-        }
+    update() {
+        // Logika Fisika (Hanya dijalankan untuk Local Player, Remote Player menerima posisi dari update)
+        if (this.isLocal) {
+            // Horizontal Move
+            if (keys.left) { this.vx = -this.speed; this.facingRight = false; this.state = 'walk'; }
+            if (keys.right) { this.vx = this.speed; this.facingRight = true; this.state = 'walk'; }
+            if (!keys.left && !keys.right) { this.vx = 0; this.state = 'idle'; }
 
-        // --- FULLSCREEN ---
-        function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => console.log(err));
+            // Dash Logic
+            if (keys.dash && !this.dashCooldown && !this.isDashing) {
+                this.performDash();
+            }
+
+            // Apply Dash Velocity Override
+            if (this.isDashing) {
+                this.vx = this.facingRight ? 15 : -15; // Kecepatan Dash
+                this.vy = 0; // Anti gravitasi saat dash
             } else {
-                document.exitFullscreen();
+                // Gravity
+                this.vy += GRAVITY;
+            }
+
+            // Jump
+            if (keys.jump && this.grounded && !this.isDashing) {
+                this.vy = this.jumpPower;
+                this.grounded = false;
+                keys.jump = false; // Prevent hold jump
+            }
+
+            // Apply Velocity
+            this.x += this.vx;
+            this.y += this.vy;
+
+            // Floor Collision
+            if (this.y + this.height >= FLOOR_Y) {
+                this.y = FLOOR_Y - this.height;
+                this.vy = 0;
+                this.grounded = true;
+                if(this.vx === 0) this.state = 'idle';
+            } else {
+                this.grounded = false;
+                if(!this.isDashing) this.state = 'jump';
+            }
+
+            // Boundary
+            if (this.x < 0) this.x = 0;
+            if (this.x > screenWidth - this.width) this.x = screenWidth - this.width;
+        }
+
+        // --- VISUAL & ANIMATION LOGIC (Berjalan untuk Local & Remote) ---
+
+        // Update Frame Animasi
+        this.animTimer++;
+        let animSpeed = 3; // Makin kecil makin cepat
+        if (this.state === 'walk') animSpeed = 2;
+        if (this.state === 'jump') animSpeed = 5;
+
+        if (this.animTimer % animSpeed === 0) {
+            this.frame++;
+        }
+
+        // Loop Frame
+        let maxFrame = sprites[this.state] ? sprites[this.state].length : 1;
+        this.frame = this.frame % maxFrame;
+
+        // Manage Dash Ghosts (After Image)
+        // Hapus ghost yang sudah pudar
+        for (let i = this.dashGhosts.length - 1; i >= 0; i--) {
+            this.dashGhosts[i].opacity -= 0.02; // Pudar selama kira-kira 1 detik (60fps * 0.016)
+            if (this.dashGhosts[i].opacity <= 0) {
+                this.dashGhosts.splice(i, 1);
             }
         }
 
-        // --- NAVIGATION ---
-        function showScreen(id) {
-            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-            document.getElementById(id).classList.remove('hidden');
+        // Generate Ghost baru jika sedang dashing
+        if (this.isDashing || this.dashGhosts.length > 0) { 
+             // Jika dashing, spawn ghost sering. Jika tidak, efek sisa.
+             if(this.isDashing && this.animTimer % 3 === 0) {
+                 this.addGhost();
+             }
         }
+    }
 
-        function backToMenu() {
-            showScreen('screen-menu');
-        }
+    performDash() {
+        this.isDashing = true;
+        this.dashCooldown = true;
+        
+        // Efek Dash Velocity sebentar (0.2s)
+        setTimeout(() => {
+            this.isDashing = false;
+        }, 200);
 
-        function showJoinUI() {
-            showScreen('screen-join');
-        }
+        // Cooldown Dash (1s)
+        setTimeout(() => {
+            this.dashCooldown = false;
+        }, 1000);
+    }
 
-        function limitInput(el) {
-            if (el.value.length > 6) el.value = el.value.slice(0, 6);
-        }
+    addGhost() {
+        // Simpan snapshot tampilan saat ini
+        let currentImg = sprites[this.state][this.frame] || sprites['idle'][0];
+        this.dashGhosts.push({
+            x: this.x,
+            y: this.y,
+            img: currentImg,
+            facingRight: this.facingRight,
+            opacity: 0.8
+        });
+    }
 
-        // --- HOST LOGIC (PLAYER 1) ---
-        function setupHost() {
-            // Generate 6 digit random code
-            const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
-            const peerId = APP_PREFIX + randomCode;
-
-            document.getElementById('room-code-display').innerText = randomCode;
-            showScreen('screen-host');
-
-            // Initialize Peer
-            peer = new Peer(peerId);
-
-            peer.on('open', (id) => {
-                console.log('Host ID:', id);
-            });
-
-            peer.on('connection', (c) => {
-                conn = c;
-                setupConnectionEvents('host');
-            });
-
-            peer.on('error', (err) => {
-                alert("Error koneksi: " + err.type);
-                backToMenu();
-            });
-        }
-
-        // --- CLIENT LOGIC (PLAYER 2) ---
-        function connectToHost() {
-            const inputCode = document.getElementById('join-input').value;
-            if (inputCode.length !== 6) {
-                alert("Masukkan 6 digit kode!");
-                return;
+    draw(ctx) {
+        // 1. Draw Ghosts (After Image)
+        this.dashGhosts.forEach(g => {
+            ctx.save();
+            ctx.globalAlpha = g.opacity;
+            if (!g.facingRight) {
+                ctx.translate(g.x + this.width, g.y);
+                ctx.scale(-1, 1);
+                ctx.drawImage(g.img, 0, 0, this.width, this.height);
+            } else {
+                ctx.drawImage(g.img, g.x, g.y, this.width, this.height);
             }
+            ctx.restore();
+        });
 
-            const targetId = APP_PREFIX + inputCode;
+        // 2. Draw Character
+        ctx.save();
+        let currentSpriteArr = sprites[this.state];
+        if (!currentSpriteArr || currentSpriteArr.length === 0) currentSpriteArr = sprites['idle'];
+        
+        let img = currentSpriteArr[this.frame];
+        if (!img) img = sprites['idle'][0];
+
+        if (!this.facingRight) {
+            ctx.translate(this.x + this.width, this.y);
+            ctx.scale(-1, 1);
+            ctx.drawImage(img, 0, 0, this.width, this.height);
+        } else {
+            ctx.drawImage(img, this.x, this.y, this.width, this.height);
+        }
+        ctx.restore();
+    }
+}
+
+// Inisialisasi Player
+const p1 = new Player(true); // Saya
+const p2 = new Player(false); // Lawan
+
+/**
+ * MULTIPLAYER LOGIC (PeerJS)
+ */
+let peer = null;
+let conn = null;
+let isHost = false;
+
+function initPeer(mode) {
+    const name = document.getElementById('username').value || "Player";
+    p1.name = name;
+    document.getElementById('p1-name').innerText = name;
+
+    // Buat Peer ID acak
+    peer = new Peer(); 
+
+    peer.on('open', (id) => {
+        console.log('My peer ID is: ' + id);
+        if (mode === 'host') {
+            document.getElementById('waiting-area').classList.remove('hidden');
+            document.getElementById('menu-buttons').classList.add('hidden');
+            document.getElementById('my-room-id').innerText = id;
+            isHost = true;
+        } else if (mode === 'join') {
+            const hostId = document.getElementById('room-id-input').value;
+            connectToPeer(hostId);
+        }
+    });
+
+    peer.on('connection', (c) => {
+        // Host menerima koneksi
+        conn = c;
+        setupConnection();
+        document.getElementById('lobby').classList.add('hidden');
+        document.getElementById('ui-layer').classList.remove('hidden');
+        startGameLoop();
+    });
+}
+
+function connectToPeer(id) {
+    if (!id) return alert("Masukkan ID Room");
+    conn = peer.connect(id);
+    conn.on('open', () => {
+        setupConnection();
+        document.getElementById('lobby').classList.add('hidden');
+        document.getElementById('ui-layer').classList.remove('hidden');
+        startGameLoop();
+    });
+}
+
+function setupConnection() {
+    // Kirim data nama awal
+    conn.send({ type: 'init', name: p1.name });
+
+    conn.on('data', (data) => {
+        if (data.type === 'init') {
+            p2.name = data.name;
+            document.getElementById('p2-name').innerText = p2.name;
+            document.getElementById('p2-hud').style.opacity = "1";
+        }
+        if (data.type === 'update') {
+            // Update posisi P2 berdasarkan data jaringan
+            p2.x = data.x;
+            p2.y = data.y;
+            p2.state = data.state;
+            p2.facingRight = data.facingRight;
             
-            // Client doesn't need a specific ID
-            peer = new Peer(); 
-
-            peer.on('open', () => {
-                conn = peer.connect(targetId);
-                setupConnectionEvents('client');
-            });
-
-            peer.on('error', (err) => {
-                alert("Gagal terhubung. Cek kode atau koneksi internet.");
-            });
-        }
-
-        // --- CONNECTION HANDLER ---
-        function setupConnectionEvents(role) {
-            myRole = role;
-
-            conn.on('open', () => {
-                // Connection established, start game
-                console.log("Connected!");
-                
-                // Kirim sinyal start
-                if (role === 'host') {
-                    conn.send({ type: 'START_GAME' });
-                    initializeGame();
-                }
-            });
-
-            conn.on('data', (data) => {
-                handleData(data);
-            });
-
-            conn.on('close', () => {
-                alert("Teman bermain terputus!");
-                location.reload();
-            });
-        }
-
-        function handleData(data) {
-            if (data.type === 'START_GAME') {
-                initializeGame();
-            } else if (data.type === 'SPAWN_BUBBLE') {
-                // Client receives spawn command
-                createBubbleVisual(data.x, data.y, data.vx, data.vy);
+            // Trigger visual dash ghost di remote player jika state mereka berubah
+            if(data.isDashing && !p2.isDashing) {
+                p2.performDash(); 
             }
+            p2.hp = data.hp;
         }
+    });
+}
 
-        // --- GAME LOGIC ---
-        function initializeGame() {
-            gameActive = true;
-            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-            document.getElementById('screen-game').classList.remove('hidden');
-            document.getElementById('game-area').classList.remove('hidden');
+// Kirim data setiap frame (atau interval tertentu)
+function sendData() {
+    if (conn && conn.open) {
+        conn.send({
+            type: 'update',
+            x: p1.x,
+            y: p1.y,
+            state: p1.state,
+            facingRight: p1.facingRight,
+            isDashing: p1.isDashing,
+            hp: p1.hp
+        });
+    }
+}
 
-            // Set role text
-            const roleText = myRole === 'host' ? "PLAYER 1: SENTUH LAYAR!" : "PLAYER 2: PECAHKAN BUBBLE!";
-            document.getElementById('role-indicator').innerText = roleText;
+/**
+ * UI LOGIC
+ */
+function showJoin() {
+    document.getElementById('menu-buttons').classList.add('hidden');
+    document.getElementById('join-area').classList.remove('hidden');
+}
 
-            // Start Timer
-            startTimer();
+function backToMenu() {
+    document.getElementById('join-area').classList.add('hidden');
+    document.getElementById('menu-buttons').classList.remove('hidden');
+}
 
-            // Input Listeners
-            if (myRole === 'host') {
-                const zone = document.getElementById('game-area');
-                zone.addEventListener('touchstart', handleHostTouch, {passive: false});
-                zone.addEventListener('mousedown', handleHostTouch); // For testing on PC
-            }
+function startGame(mode) {
+    if(!document.getElementById('username').value) {
+        alert("Isi nama dulu!");
+        return;
+    }
+    initPeer(mode);
+}
 
-            // Client Loop (untuk menggerakkan bubble)
-            if (myRole === 'client') {
-                requestAnimationFrame(gameLoopClient);
-            }
-        }
+/**
+ * CONTROLS (TOUCH)
+ */
+const setupBtn = (id, key) => {
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
+    el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
+    el.addEventListener('mousedown', (e) => { keys[key] = true; });
+    el.addEventListener('mouseup', (e) => { keys[key] = false; });
+};
 
-        function startTimer() {
-            const timerEl = document.getElementById('timer');
-            const interval = setInterval(() => {
-                if (!gameActive) {
-                    clearInterval(interval);
-                    return;
-                }
-                timeLeft--;
-                timerEl.innerText = timeLeft;
+setupBtn('btn-left', 'left');
+setupBtn('btn-right', 'right');
+setupBtn('btn-jump', 'jump');
+setupBtn('btn-dash', 'dash');
 
-                if (timeLeft <= 0) {
-                    clearInterval(interval);
-                    endGame();
-                }
-            }, 1000);
-        }
+/**
+ * MAIN LOOP
+ */
+function gameLoop() {
+    // Clear Canvas (White)
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw Floor Line (Optional visual, since background is same white)
+    // Tapi user minta lantai warna sama dengan background, jadi invisible.
+    // Kita gambar bayangan tipis saja biar tau ada lantai
+    ctx.fillStyle = '#f9f9f9'; 
+    ctx.fillRect(0, FLOOR_Y, canvas.width, screenHeight - FLOOR_Y);
 
-        function endGame() {
-            gameActive = false;
-            alert("WAKTU HABIS!");
-            location.reload();
-        }
+    // Update & Draw P1
+    p1.update();
+    p1.draw(ctx);
 
-        // --- PLAYER 1 (HOST) SPAWNING ---
-        function handleHostTouch(e) {
-            if (!gameActive) return;
-            e.preventDefault();
+    // Update & Draw P2
+    p2.update(); // Hanya update animasi/ghost, posisi dari network
+    p2.draw(ctx);
 
-            // Support multi-touch
-            let touches = e.touches || [{clientX: e.clientX, clientY: e.clientY}];
+    // Network Sync
+    sendData();
 
-            for (let i = 0; i < touches.length; i++) {
-                const x = touches[i].clientX;
-                const y = touches[i].clientY;
+    // Update HP UI
+    document.getElementById('p1-hp').style.width = p1.hp + '%';
+    document.getElementById('p2-hp').style.width = p2.hp + '%';
 
-                // Visual feedback for Host (optional, just a small flash)
-                showClickFeedback(x, y);
+    requestAnimationFrame(gameLoop);
+}
 
-                // Calculate speed based on time
-                // Time 280 -> Slow, Time 0 -> Fast
-                // Base speed 2, max speed 8
-                const timeProgress = (280 - timeLeft) / 280; 
-                const speedY = 2 + (timeProgress * 6); 
+function startGameLoop() {
+    requestAnimationFrame(gameLoop);
+}
 
-                // Send to P2
-                if (conn && conn.open) {
-                    conn.send({
-                        type: 'SPAWN_BUBBLE',
-                        x: x / window.innerWidth, // Normalize coordinates (0-1)
-                        y: y / window.innerHeight,
-                        vx: (Math.random() - 0.5) * 2, // Random drift X
-                        vy: speedY
-                    });
-                }
-            }
-        }
+// Resize handle
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    screenWidth = canvas.width;
+    screenHeight = canvas.height;
+});
 
-        function showClickFeedback(x, y) {
-            const el = document.createElement('div');
-            el.style.position = 'absolute';
-            el.style.left = x + 'px';
-            el.style.top = y + 'px';
-            el.style.width = '10px';
-            el.style.height = '10px';
-            el.style.background = 'white';
-            el.style.borderRadius = '50%';
-            el.style.pointerEvents = 'none';
-            document.getElementById('game-area').appendChild(el);
-            
-            setTimeout(() => el.remove(), 200);
-        }
-
-        // --- PLAYER 2 (CLIENT) RENDERING & INTERACTION ---
-        function createBubbleVisual(relX, relY, vx, vy) {
-            if (myRole !== 'client') return;
-
-            const x = relX * window.innerWidth;
-            const y = relY * window.innerHeight; // Start where P1 touched
-            
-            const b = document.createElement('div');
-            b.classList.add('bubble');
-            
-            // Random Size
-            const size = 40 + Math.random() * 40;
-            b.style.width = size + 'px';
-            b.style.height = size + 'px';
-            
-            // Initial Pos
-            b.style.left = x + 'px';
-            b.style.top = y + 'px';
-
-            // Data for movement
-            b.dataset.vx = vx;
-            b.dataset.vy = vy;
-            b.dataset.x = x;
-            b.dataset.y = y;
-
-            // Tap to pop
-            b.addEventListener('pointerdown', (e) => {
-                popBubble(b);
-            });
-
-            document.getElementById('game-area').appendChild(b);
-            bubbles.push(b);
-        }
-
-        function popBubble(el) {
-            // Visual Pop
-            el.style.transform = "translate(-50%, -50%) scale(1.5)";
-            el.style.opacity = "0";
-            el.style.transition = "0.1s";
-            
-            setTimeout(() => {
-                if(el.parentNode) el.parentNode.removeChild(el);
-                bubbles = bubbles.filter(b => b !== el);
-            }, 100);
-        }
-
-        function gameLoopClient() {
-            if (!gameActive) return;
-
-            // Move bubbles
-            for (let i = 0; i < bubbles.length; i++) {
-                let b = bubbles[i];
-                let x = parseFloat(b.dataset.x);
-                let y = parseFloat(b.dataset.y);
-                let vx = parseFloat(b.dataset.vx);
-                let vy = parseFloat(b.dataset.vy);
-
-                x += vx;
-                y += vy;
-
-                b.dataset.x = x;
-                b.dataset.y = y;
-                b.style.left = x + 'px';
-                b.style.top = y + 'px';
-
-                // Remove if out of screen
-                if (y > window.innerHeight + 100) {
-                    if(b.parentNode) b.parentNode.removeChild(b);
-                    bubbles.splice(i, 1);
-                    i--;
-                }
-            }
-
-            requestAnimationFrame(gameLoopClient);
-        }
-
-    </script>
+</script>
 </body>
 </html>
