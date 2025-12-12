@@ -3,516 +3,579 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Multiplayer Platformer 2D</title>
+    <title>2D Multiplayer Platformer</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
-        * { box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: white; font-family: 'Arial', sans-serif; }
-        
-        /* CANVAS GAME */
-        canvas { display: block; width: 100%; height: 100%; }
-
-        /* UI LAYER */
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        
-        /* LOBBY SCREEN */
-        #lobby { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: white; display: flex; flex-direction: column; 
-            justify-content: center; align-items: center; pointer-events: auto; z-index: 10;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none; /* Mencegah zoom/scroll pada mobile */
+            user-select: none;
         }
-        input { padding: 10px; font-size: 16px; margin: 10px; text-align: center; border: 2px solid #333; border-radius: 8px; width: 200px; }
-        button { padding: 12px 24px; font-size: 18px; margin: 5px; background: #333; color: white; border: none; border-radius: 8px; cursor: pointer; }
+
+        body {
+            background-color: #ffffff; /* Putih Polos */
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            color: #333;
+        }
+
+        /* LOBBY UI */
+        #lobby {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .lobby-box {
+            background: #f0f0f0;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 80%;
+            max-width: 400px;
+        }
+
+        input {
+            padding: 10px;
+            font-size: 18px;
+            width: 100%;
+            margin: 10px 0;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            width: 100%;
+        }
+
         button:active { background: #555; }
-        .hidden { display: none !important; }
-        #status { margin-top: 10px; color: #666; font-size: 14px; }
-        
-        /* IN GAME HUD */
-        #hud { position: absolute; top: 10px; left: 10px; z-index: 5; display: flex; gap: 20px; }
-        .hp-container { width: 150px; height: 20px; background: #ddd; border: 2px solid #333; position: relative; }
-        .hp-bar { width: 100%; height: 100%; background: #ff3333; transition: width 0.2s; }
-        .name-tag { position: absolute; top: -20px; left: 0; font-weight: bold; color: #333; font-size: 12px; }
+
+        /* GAME UI */
+        #gameUI {
+            display: none; /* Hidden by default */
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Biar tembus ke canvas */
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* HP BAR */
+        #hpContainer {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 200px;
+            height: 20px;
+            background: #ddd;
+            border: 2px solid #333;
+        }
+
+        #hpBar {
+            width: 100%;
+            height: 100%;
+            background: #ff4444;
+        }
 
         /* CONTROLS */
-        .controls-area { position: absolute; bottom: 20px; pointer-events: auto; display: flex; gap: 15px; }
-        #controls-left { left: 20px; }
-        #controls-right { right: 20px; }
-        
-        .btn { 
-            width: 60px; height: 60px; background: rgba(0,0,0,0.1); 
-            border: 2px solid #333; border-radius: 50%; 
-            display: flex; justify-content: center; align-items: center; 
-            font-weight: bold; font-size: 20px; color: #333;
+        .control-area {
+            position: absolute;
+            bottom: 20px;
+            pointer-events: auto;
+            display: flex;
+            gap: 15px;
         }
-        .btn:active { background: rgba(0,0,0,0.3); }
 
-        /* LOADING */
-        #loader { position: absolute; top:0; left:0; width:100%; height:100%; background:white; z-index: 20; display:flex; justify-content:center; align-items:center; flex-direction: column;}
+        .left-controls {
+            left: 20px;
+        }
+
+        .right-controls {
+            right: 20px;
+        }
+
+        .btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 50%;
+            border: 2px solid #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 24px;
+            color: #333;
+        }
+
+        .btn:active {
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+        }
+
+        /* Notifikasi */
+        #statusMsg {
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: red;
+        }
     </style>
 </head>
 <body>
 
-    <div id="loader">
-        <h2>Memuat Aset...</h2>
-        <p id="load-progress">0%</p>
-    </div>
-
     <div id="lobby">
-        <h1>BATTLE 2D</h1>
-        <input type="text" id="username" placeholder="Nama (Max 10)" maxlength="10">
-        <div id="menu-buttons">
-            <button onclick="startGame('host')">Buat Room</button>
-            <button onclick="showJoin()">Gabung Room</button>
+        <div class="lobby-box">
+            <h2>2D Platformer Multiplayer</h2>
+            <p id="statusMsg">Siap terhubung...</p>
+            
+            <div id="createSection">
+                <button onclick="createRoom()">Create Room</button>
+            </div>
+            
+            <div style="margin: 15px 0; font-weight: bold;">OR</div>
+            
+            <div id="joinSection">
+                <input type="number" id="roomInput" placeholder="Masukkan 6 Digit Kode" maxlength="6">
+                <button onclick="joinRoom()">Join Room</button>
+            </div>
+
+            <div id="roomInfo" style="display:none; margin-top:15px;">
+                <p>Kode Room:</p>
+                <h1 id="displayCode" style="letter-spacing: 5px; font-size: 32px;"></h1>
+                <p>Menunggu Player 2...</p>
+            </div>
         </div>
-        <div id="join-area" class="hidden">
-            <input type="text" id="room-id-input" placeholder="Masukkan ID Room Teman">
-            <button onclick="startGame('join')">Masuk</button>
-            <button onclick="backToMenu()" style="background:#888;">Kembali</button>
-        </div>
-        <div id="waiting-area" class="hidden">
-            <p>Menunggu lawan...</p>
-            <p>Bagikan ID ini ke teman:</p>
-            <h2 id="my-room-id" style="user-select: text; border: 1px dashed #333; padding: 5px;">...</h2>
-        </div>
-        <p id="status"></p>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
-    <div id="ui-layer" class="hidden">
-        <div id="hud">
-            <div>
-                <div class="name-tag" id="p1-name">Player 1</div>
-                <div class="hp-container"><div class="hp-bar" id="p1-hp"></div></div>
-            </div>
-            <div id="p2-hud" style="opacity: 0.5;">
-                <div class="name-tag" id="p2-name">Player 2</div>
-                <div class="hp-container"><div class="hp-bar" id="p2-hp"></div></div>
-            </div>
+    <div id="gameUI">
+        <div id="hpContainer"><div id="hpBar"></div></div>
+
+        <div class="control-area left-controls">
+            <div class="btn" id="btnLeft">←</div>
+            <div class="btn" id="btnRight">→</div>
         </div>
 
-        <div id="controls-left" class="controls-area">
-            <div class="btn" id="btn-left">←</div>
-            <div class="btn" id="btn-right">→</div>
-        </div>
-        <div id="controls-right" class="controls-area">
-            <div class="btn" id="btn-dash" style="background:rgba(255, 200, 0, 0.2);">Dash</div>
-            <div class="btn" id="btn-jump">Jump</div>
+        <div class="control-area right-controls">
+            <div class="btn" id="btnDash" style="background:rgba(255, 165, 0, 0.3)">⚡</div>
+            <div class="btn" id="btnJump">↑</div>
         </div>
     </div>
 
-<script>
-/**
- * KONFIGURASI DAN URL ASSET
- */
-const ASSETS = {
-    idle: [
-        '0001_0.png','0002_8.png','0003_8.png','0004_9.png','0005_8.png','0006_8.png','0007_9.png','0008_8.png','0009_9.png','0010_9.png',
-        '0011_8.png','0012_8.png','0013_9.png','0014_8.png','0015_8.png','0016_9.png','0017_8.png','0018_8.png','0019_9.png','0020_8.png'
-    ].map(f => `https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/${f}`),
-    
-    walk: [
-        '0001_0.png','0002_8.png','0003_8.png','0004_9.png','0005_8.png','0006_8.png','0007_9.png','0008_8.png','0009_8.png','0010_9.png','0011_8.png'
-    ].map(f => `https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/${f}`),
-    
-    jump: [
-        '0001_0.png','0002_8.png','0003_8.png'
-    ].map(f => `https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Jump/${f}`)
-};
+    <script>
+        // --- KONFIGURASI ASET ---
+        const ASSETS = {
+            idle: [
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0001_0.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0002_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0003_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0004_9.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0005_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0006_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0007_9.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0008_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0009_9.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0010_9.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0011_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0012_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0013_9.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0014_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0015_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0016_9.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0017_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0018_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0019_9.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0020_8.png"
+            ],
+            walk: [
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0001_0.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0002_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0003_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0004_9.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0005_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0006_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0007_9.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0008_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0009_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0010_9.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0011_8.png"
+            ],
+            jump: [
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Jump/0001_0.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Jump/0002_8.png",
+                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Jump/0003_8.png"
+            ]
+        };
 
-const sprites = { idle: [], walk: [], jump: [] };
-let imagesLoaded = 0;
-const totalImages = ASSETS.idle.length + ASSETS.walk.length + ASSETS.jump.length;
-
-// Preload Images
-function loadImages() {
-    const loadGroup = (groupName, urls) => {
-        urls.forEach(url => {
-            const img = new Image();
-            img.src = url;
-            img.onload = () => {
-                imagesLoaded++;
-                document.getElementById('load-progress').innerText = Math.floor((imagesLoaded/totalImages)*100) + '%';
-                if(imagesLoaded === totalImages) {
-                    document.getElementById('loader').style.display = 'none';
-                }
-            };
-            sprites[groupName].push(img);
-        });
-    };
-    loadGroup('idle', ASSETS.idle);
-    loadGroup('walk', ASSETS.walk);
-    loadGroup('jump', ASSETS.jump);
-}
-loadImages();
-
-/**
- * LOGIKA GAME & FISIKA
- */
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-
-let screenWidth = window.innerWidth;
-let screenHeight = window.innerHeight;
-canvas.width = screenWidth;
-canvas.height = screenHeight;
-
-// Variabel Global
-const GRAVITY = 0.8;
-const FLOOR_Y = screenHeight - 50; // Lantai sedikit di atas bawah layar
-const PLAYER_SIZE = 120; // Ukuran render karakter
-
-// Input State
-const keys = { left: false, right: false, jump: false, dash: false };
-
-class Player {
-    constructor(isLocal) {
-        this.isLocal = isLocal;
-        this.x = isLocal ? 100 : screenWidth - 200;
-        this.y = FLOOR_Y - PLAYER_SIZE;
-        this.vx = 0;
-        this.vy = 0;
-        this.width = PLAYER_SIZE;
-        this.height = PLAYER_SIZE;
-        this.speed = 5;
-        this.jumpPower = -18;
-        this.grounded = false;
-        this.facingRight = isLocal; // P1 hadap kanan, P2 hadap kiri
-        
-        // Stats
-        this.hp = 100;
-        this.name = "Player";
-        
-        // Animasi
-        this.state = 'idle'; // idle, walk, jump
-        this.frame = 0;
-        this.animTimer = 0;
-        
-        // Dash
-        this.isDashing = false;
-        this.dashCooldown = false;
-        this.dashGhosts = []; // Array untuk after-image
-    }
-
-    update() {
-        // Logika Fisika (Hanya dijalankan untuk Local Player, Remote Player menerima posisi dari update)
-        if (this.isLocal) {
-            // Horizontal Move
-            if (keys.left) { this.vx = -this.speed; this.facingRight = false; this.state = 'walk'; }
-            if (keys.right) { this.vx = this.speed; this.facingRight = true; this.state = 'walk'; }
-            if (!keys.left && !keys.right) { this.vx = 0; this.state = 'idle'; }
-
-            // Dash Logic
-            if (keys.dash && !this.dashCooldown && !this.isDashing) {
-                this.performDash();
+        // Preload Images
+        const loadedImages = { idle: [], walk: [], jump: [] };
+        function preloadImages() {
+            for (let key in ASSETS) {
+                ASSETS[key].forEach(url => {
+                    const img = new Image();
+                    img.src = url;
+                    loadedImages[key].push(img);
+                });
             }
+        }
+        preloadImages();
 
-            // Apply Dash Velocity Override
-            if (this.isDashing) {
-                this.vx = this.facingRight ? 15 : -15; // Kecepatan Dash
-                this.vy = 0; // Anti gravitasi saat dash
-            } else {
-                // Gravity
-                this.vy += GRAVITY;
-            }
+        // --- GAME ENGINE & LOGIC ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Resize Canvas
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
 
-            // Jump
-            if (keys.jump && this.grounded && !this.isDashing) {
-                this.vy = this.jumpPower;
-                this.grounded = false;
-                keys.jump = false; // Prevent hold jump
-            }
+        // Constants
+        const GRAVITY = 0.8;
+        const FLOOR_Y = window.innerHeight - 150; // Lantai invisible
+        const SPEED = 5;
+        const JUMP_FORCE = -15;
+        const DASH_FORCE = 15;
+        const DASH_DURATION = 1000; // 1 detik (ms)
 
-            // Apply Velocity
-            this.x += this.vx;
-            this.y += this.vy;
+        // Inputs
+        const keys = { left: false, right: false, jump: false, dash: false };
 
-            // Floor Collision
-            if (this.y + this.height >= FLOOR_Y) {
-                this.y = FLOOR_Y - this.height;
+        // Helper untuk UI Touch
+        function setupTouch(id, key) {
+            const el = document.getElementById(id);
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
+            el.addEventListener('mousedown', (e) => { keys[key] = true; });
+            el.addEventListener('mouseup', (e) => { keys[key] = false; });
+        }
+        setupTouch('btnLeft', 'left');
+        setupTouch('btnRight', 'right');
+        setupTouch('btnJump', 'jump');
+        setupTouch('btnDash', 'dash');
+
+        // Class Player
+        class Player {
+            constructor(isLocal = true, x = 100) {
+                this.isLocal = isLocal;
+                this.x = x;
+                this.y = FLOOR_Y;
+                this.vx = 0;
                 this.vy = 0;
-                this.grounded = true;
-                if(this.vx === 0) this.state = 'idle';
-            } else {
-                this.grounded = false;
-                if(!this.isDashing) this.state = 'jump';
+                this.width = 100; // Sesuaikan ukuran sprite
+                this.height = 100;
+                this.facingRight = true;
+                
+                this.state = 'idle'; // idle, walk, jump
+                this.frameIndex = 0;
+                this.frameTimer = 0;
+                this.animSpeed = 5; // Semakin kecil semakin cepat
+
+                // Dash Mechanics
+                this.isDashing = false;
+                this.dashEndTime = 0;
+                this.ghosts = []; // Array untuk after image
             }
 
-            // Boundary
-            if (this.x < 0) this.x = 0;
-            if (this.x > screenWidth - this.width) this.x = screenWidth - this.width;
-        }
+            update() {
+                // Update State & Physics (Hanya Local Player yang menghitung fisik sendiri)
+                if (this.isLocal) {
+                    this.handleInput();
+                    this.physics();
+                } else {
+                    // Remote player positions are interpolated/set via network
+                    this.animate(); // Tetap jalankan animasi
+                }
 
-        // --- VISUAL & ANIMATION LOGIC (Berjalan untuk Local & Remote) ---
+                // Update Ghosts (After Image)
+                if (Date.now() < this.dashEndTime) {
+                    // Tambah ghost setiap beberapa frame
+                    if (this.frameTimer % 3 === 0) {
+                        this.ghosts.push({
+                            x: this.x,
+                            y: this.y,
+                            alpha: 0.8,
+                            img: this.getCurrentSprite(),
+                            facingRight: this.facingRight
+                        });
+                    }
+                }
+                
+                // Kurangi opacity ghost
+                for (let i = this.ghosts.length - 1; i >= 0; i--) {
+                    this.ghosts[i].alpha -= 0.05;
+                    if (this.ghosts[i].alpha <= 0) this.ghosts.splice(i, 1);
+                }
+            }
 
-        // Update Frame Animasi
-        this.animTimer++;
-        let animSpeed = 3; // Makin kecil makin cepat
-        if (this.state === 'walk') animSpeed = 2;
-        if (this.state === 'jump') animSpeed = 5;
+            handleInput() {
+                // Movement
+                if (keys.left) {
+                    this.vx = -SPEED;
+                    this.facingRight = false;
+                    if (!this.isDashing) this.state = 'walk';
+                } else if (keys.right) {
+                    this.vx = SPEED;
+                    this.facingRight = true;
+                    if (!this.isDashing) this.state = 'walk';
+                } else {
+                    this.vx = 0;
+                    if (!this.isDashing && this.y >= FLOOR_Y) this.state = 'idle';
+                }
 
-        if (this.animTimer % animSpeed === 0) {
-            this.frame++;
-        }
+                // Jump
+                if (keys.jump && this.y >= FLOOR_Y) {
+                    this.vy = JUMP_FORCE;
+                    this.state = 'jump';
+                }
 
-        // Loop Frame
-        let maxFrame = sprites[this.state] ? sprites[this.state].length : 1;
-        this.frame = this.frame % maxFrame;
+                // Dash
+                if (keys.dash && Date.now() > this.dashEndTime) {
+                    this.isDashing = true;
+                    this.dashEndTime = Date.now() + DASH_DURATION;
+                    // Dash boost
+                    let dashDir = this.facingRight ? 1 : -1;
+                    if (keys.left) dashDir = -1;
+                    if (keys.right) dashDir = 1;
+                    
+                    this.vx = dashDir * DASH_FORCE;
+                    this.vy = 0; // Tahan gravity sedikit saat dash start (opsional)
+                }
 
-        // Manage Dash Ghosts (After Image)
-        // Hapus ghost yang sudah pudar
-        for (let i = this.dashGhosts.length - 1; i >= 0; i--) {
-            this.dashGhosts[i].opacity -= 0.02; // Pudar selama kira-kira 1 detik (60fps * 0.016)
-            if (this.dashGhosts[i].opacity <= 0) {
-                this.dashGhosts.splice(i, 1);
+                // Jika masa dash habis tapi efek masih jalan (1 detik)
+                if (Date.now() > this.dashEndTime - DASH_DURATION + 200) {
+                     this.isDashing = false; // Stop movement lock setelah 0.2s, tapi efek visual lanjut
+                }
+            }
+
+            physics() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Gravity
+                if (this.y < FLOOR_Y) {
+                    this.vy += GRAVITY;
+                    if(!this.isDashing) this.state = 'jump';
+                } else {
+                    this.y = FLOOR_Y;
+                    this.vy = 0;
+                    if (this.vx === 0) this.state = 'idle';
+                }
+
+                // Animasi Frame Counter
+                this.animate();
+
+                // Batas layar
+                if (this.x < 0) this.x = 0;
+                if (this.x > canvas.width - this.width) this.x = canvas.width - this.width;
+            }
+
+            animate() {
+                this.frameTimer++;
+                if (this.frameTimer >= this.animSpeed) {
+                    this.frameTimer = 0;
+                    this.frameIndex++;
+                }
+            }
+
+            getCurrentSprite() {
+                // Pilih array gambar berdasarkan state
+                let sprites = loadedImages.idle;
+                if (this.state === 'walk') sprites = loadedImages.walk;
+                if (this.state === 'jump') sprites = loadedImages.jump;
+
+                // Loop frame
+                let idx = this.frameIndex % sprites.length;
+                return sprites[idx];
+            }
+
+            draw(ctx) {
+                // 1. Gambar Ghosts (After Image)
+                this.ghosts.forEach(g => {
+                    ctx.save();
+                    ctx.globalAlpha = g.alpha;
+                    ctx.translate(g.x + this.width / 2, g.y + this.height / 2);
+                    if (!g.facingRight) ctx.scale(-1, 1);
+                    ctx.drawImage(g.img, -this.width / 2, -this.height / 2, this.width, this.height);
+                    ctx.restore();
+                });
+
+                // 2. Gambar Karakter Utama
+                let img = this.getCurrentSprite();
+                if (!img) return;
+
+                ctx.save();
+                ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+                if (!this.facingRight) ctx.scale(-1, 1); // Flip horizontal
+                ctx.drawImage(img, -this.width / 2, -this.height / 2, this.width, this.height);
+                ctx.restore();
+            }
+
+            // Untuk multiplayer data
+            getData() {
+                return {
+                    x: this.x,
+                    y: this.y,
+                    state: this.state,
+                    facingRight: this.facingRight,
+                    dashActive: (Date.now() < this.dashEndTime)
+                };
+            }
+
+            setData(data) {
+                this.x = data.x;
+                this.y = data.y;
+                this.state = data.state;
+                this.facingRight = data.facingRight;
+                if (data.dashActive) {
+                    this.dashEndTime = Date.now() + 500; // Sync visual dash
+                }
             }
         }
 
-        // Generate Ghost baru jika sedang dashing
-        if (this.isDashing || this.dashGhosts.length > 0) { 
-             // Jika dashing, spawn ghost sering. Jika tidak, efek sisa.
-             if(this.isDashing && this.animTimer % 3 === 0) {
-                 this.addGhost();
-             }
-        }
-    }
-
-    performDash() {
-        this.isDashing = true;
-        this.dashCooldown = true;
+        // --- MULTIPLAYER LOGIC (PEERJS) ---
+        let peer;
+        let conn;
+        let isHost = false;
         
-        // Efek Dash Velocity sebentar (0.2s)
-        setTimeout(() => {
-            this.isDashing = false;
-        }, 200);
+        const localPlayer = new Player(true, 50);
+        const remotePlayer = new Player(false, 200);
+        let gameActive = false;
 
-        // Cooldown Dash (1s)
-        setTimeout(() => {
-            this.dashCooldown = false;
-        }, 1000);
-    }
+        function initPeer() {
+            peer = new Peer(null, {
+                debug: 2
+            });
 
-    addGhost() {
-        // Simpan snapshot tampilan saat ini
-        let currentImg = sprites[this.state][this.frame] || sprites['idle'][0];
-        this.dashGhosts.push({
-            x: this.x,
-            y: this.y,
-            img: currentImg,
-            facingRight: this.facingRight,
-            opacity: 0.8
-        });
-    }
+            peer.on('open', (id) => {
+                console.log('My peer ID is: ' + id);
+            });
 
-    draw(ctx) {
-        // 1. Draw Ghosts (After Image)
-        this.dashGhosts.forEach(g => {
-            ctx.save();
-            ctx.globalAlpha = g.opacity;
-            if (!g.facingRight) {
-                ctx.translate(g.x + this.width, g.y);
-                ctx.scale(-1, 1);
-                ctx.drawImage(g.img, 0, 0, this.width, this.height);
-            } else {
-                ctx.drawImage(g.img, g.x, g.y, this.width, this.height);
-            }
-            ctx.restore();
-        });
+            peer.on('connection', (c) => {
+                // Host menerima koneksi
+                conn = c;
+                setupConnection();
+            });
 
-        // 2. Draw Character
-        ctx.save();
-        let currentSpriteArr = sprites[this.state];
-        if (!currentSpriteArr || currentSpriteArr.length === 0) currentSpriteArr = sprites['idle'];
-        
-        let img = currentSpriteArr[this.frame];
-        if (!img) img = sprites['idle'][0];
-
-        if (!this.facingRight) {
-            ctx.translate(this.x + this.width, this.y);
-            ctx.scale(-1, 1);
-            ctx.drawImage(img, 0, 0, this.width, this.height);
-        } else {
-            ctx.drawImage(img, this.x, this.y, this.width, this.height);
+            peer.on('error', (err) => {
+                alert("Error Koneksi: " + err);
+            });
         }
-        ctx.restore();
-    }
-}
 
-// Inisialisasi Player
-const p1 = new Player(true); // Saya
-const p2 = new Player(false); // Lawan
-
-/**
- * MULTIPLAYER LOGIC (PeerJS)
- */
-let peer = null;
-let conn = null;
-let isHost = false;
-
-function initPeer(mode) {
-    const name = document.getElementById('username').value || "Player";
-    p1.name = name;
-    document.getElementById('p1-name').innerText = name;
-
-    // Buat Peer ID acak
-    peer = new Peer(); 
-
-    peer.on('open', (id) => {
-        console.log('My peer ID is: ' + id);
-        if (mode === 'host') {
-            document.getElementById('waiting-area').classList.remove('hidden');
-            document.getElementById('menu-buttons').classList.add('hidden');
-            document.getElementById('my-room-id').innerText = id;
-            isHost = true;
-        } else if (mode === 'join') {
-            const hostId = document.getElementById('room-id-input').value;
-            connectToPeer(hostId);
-        }
-    });
-
-    peer.on('connection', (c) => {
-        // Host menerima koneksi
-        conn = c;
-        setupConnection();
-        document.getElementById('lobby').classList.add('hidden');
-        document.getElementById('ui-layer').classList.remove('hidden');
-        startGameLoop();
-    });
-}
-
-function connectToPeer(id) {
-    if (!id) return alert("Masukkan ID Room");
-    conn = peer.connect(id);
-    conn.on('open', () => {
-        setupConnection();
-        document.getElementById('lobby').classList.add('hidden');
-        document.getElementById('ui-layer').classList.remove('hidden');
-        startGameLoop();
-    });
-}
-
-function setupConnection() {
-    // Kirim data nama awal
-    conn.send({ type: 'init', name: p1.name });
-
-    conn.on('data', (data) => {
-        if (data.type === 'init') {
-            p2.name = data.name;
-            document.getElementById('p2-name').innerText = p2.name;
-            document.getElementById('p2-hud').style.opacity = "1";
-        }
-        if (data.type === 'update') {
-            // Update posisi P2 berdasarkan data jaringan
-            p2.x = data.x;
-            p2.y = data.y;
-            p2.state = data.state;
-            p2.facingRight = data.facingRight;
+        function createRoom() {
+            // Generate 6 digit code
+            const code = Math.floor(100000 + Math.random() * 900000);
+            const roomId = "game-platformer-" + code;
             
-            // Trigger visual dash ghost di remote player jika state mereka berubah
-            if(data.isDashing && !p2.isDashing) {
-                p2.performDash(); 
-            }
-            p2.hp = data.hp;
+            peer = new Peer(roomId);
+
+            peer.on('open', (id) => {
+                document.getElementById('createSection').style.display = 'none';
+                document.getElementById('joinSection').style.display = 'none';
+                document.getElementById('roomInfo').style.display = 'block';
+                document.getElementById('displayCode').innerText = code;
+                document.getElementById('statusMsg').innerText = "Menunggu lawan...";
+                isHost = true;
+            });
+
+            peer.on('connection', (c) => {
+                conn = c;
+                setupConnection();
+            });
         }
-    });
-}
 
-// Kirim data setiap frame (atau interval tertentu)
-function sendData() {
-    if (conn && conn.open) {
-        conn.send({
-            type: 'update',
-            x: p1.x,
-            y: p1.y,
-            state: p1.state,
-            facingRight: p1.facingRight,
-            isDashing: p1.isDashing,
-            hp: p1.hp
-        });
-    }
-}
+        function joinRoom() {
+            const code = document.getElementById('roomInput').value;
+            if (code.length !== 6) {
+                alert("Masukkan 6 digit kode!");
+                return;
+            }
+            
+            const roomId = "game-platformer-" + code;
+            peer = new Peer(); // Client pake ID random
 
-/**
- * UI LOGIC
- */
-function showJoin() {
-    document.getElementById('menu-buttons').classList.add('hidden');
-    document.getElementById('join-area').classList.remove('hidden');
-}
+            peer.on('open', (id) => {
+                conn = peer.connect(roomId);
+                setupConnection();
+            });
+            
+            peer.on('error', (err) => {
+                alert("Room tidak ditemukan!");
+            });
+        }
 
-function backToMenu() {
-    document.getElementById('join-area').classList.add('hidden');
-    document.getElementById('menu-buttons').classList.remove('hidden');
-}
+        function setupConnection() {
+            conn.on('open', () => {
+                console.log("Connected!");
+                document.getElementById('lobby').style.display = 'none';
+                document.getElementById('gameUI').style.display = 'block';
+                gameActive = true;
+                startGame();
+            });
 
-function startGame(mode) {
-    if(!document.getElementById('username').value) {
-        alert("Isi nama dulu!");
-        return;
-    }
-    initPeer(mode);
-}
+            conn.on('data', (data) => {
+                // Terima data posisi lawan
+                remotePlayer.setData(data);
+            });
+        }
 
-/**
- * CONTROLS (TOUCH)
- */
-const setupBtn = (id, key) => {
-    const el = document.getElementById(id);
-    el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
-    el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
-    el.addEventListener('mousedown', (e) => { keys[key] = true; });
-    el.addEventListener('mouseup', (e) => { keys[key] = false; });
-};
+        // --- GAME LOOP ---
+        function startGame() {
+            function loop() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-setupBtn('btn-left', 'left');
-setupBtn('btn-right', 'right');
-setupBtn('btn-jump', 'jump');
-setupBtn('btn-dash', 'dash');
+                // Background & Floor (Putih)
+                ctx.fillStyle = "white";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-/**
- * MAIN LOOP
- */
-function gameLoop() {
-    // Clear Canvas (White)
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw Floor Line (Optional visual, since background is same white)
-    // Tapi user minta lantai warna sama dengan background, jadi invisible.
-    // Kita gambar bayangan tipis saja biar tau ada lantai
-    ctx.fillStyle = '#f9f9f9'; 
-    ctx.fillRect(0, FLOOR_Y, canvas.width, screenHeight - FLOOR_Y);
+                // Local Player Logic
+                localPlayer.update();
+                localPlayer.draw(ctx);
 
-    // Update & Draw P1
-    p1.update();
-    p1.draw(ctx);
+                // Remote Player Logic
+                remotePlayer.update(); // Hanya update animasi/ghost, bukan fisik
+                remotePlayer.draw(ctx);
 
-    // Update & Draw P2
-    p2.update(); // Hanya update animasi/ghost, posisi dari network
-    p2.draw(ctx);
+                // Kirim data ke lawan
+                if (gameActive && conn && conn.open) {
+                    conn.send(localPlayer.getData());
+                }
 
-    // Network Sync
-    sendData();
+                requestAnimationFrame(loop);
+            }
+            loop();
+        }
 
-    // Update HP UI
-    document.getElementById('p1-hp').style.width = p1.hp + '%';
-    document.getElementById('p2-hp').style.width = p2.hp + '%';
-
-    requestAnimationFrame(gameLoop);
-}
-
-function startGameLoop() {
-    requestAnimationFrame(gameLoop);
-}
-
-// Resize handle
-window.addEventListener('resize', () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    screenWidth = canvas.width;
-    screenHeight = canvas.height;
-});
-
-</script>
+        // Init tombol
+        // initPeer(); // Pindah ke tombol
+    </script>
 </body>
 </html>
