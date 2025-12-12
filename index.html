@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cosmic Pop Duo</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            touch-action: none; /* Mencegah zoom/scroll saat main */
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* UI SCREENS */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            background: #000;
+            transition: opacity 0.5s;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1 {
+            text-shadow: 0 0 10px #bd00ff, 0 0 20px #00ffff;
+            font-size: 2rem;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        button {
+            background: transparent;
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            margin: 10px;
+            cursor: pointer;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+            font-family: inherit;
+            transition: 0.2s;
+        }
+
+        button:active {
+            background: #00ffff;
+            color: #000;
+        }
+
+        input {
+            background: #111;
+            border: 2px solid #bd00ff;
+            color: #fff;
+            padding: 15px;
+            font-size: 1.5rem;
+            text-align: center;
+            letter-spacing: 5px;
+            width: 200px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            outline: none;
+        }
+
+        /* ROOM INFO */
+        #room-code-display {
+            font-size: 3rem;
+            color: #bd00ff;
+            font-weight: bold;
+            letter-spacing: 10px;
+            margin: 20px 0;
+            text-shadow: 0 0 20px #bd00ff;
+        }
+
+        .loading-text {
+            font-size: 0.9rem;
+            color: #888;
+            margin-top: 10px;
+            animation: pulse 1.5s infinite;
+        }
+
+        /* FULLSCREEN BTN */
+        .fs-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-size: 0.8rem;
+            padding: 10px;
+            border-color: #666;
+            color: #666;
+        }
+
+        /* GAME AREA */
+        #game-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            overflow: hidden;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 20;
+            font-size: 1.5rem;
+            pointer-events: none;
+        }
+
+        #timer {
+            color: #ff0055;
+            font-weight: bold;
+        }
+
+        #role-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #aaa;
+            font-size: 0.8rem;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        /* BUBBLES */
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.9), rgba(0,255,255,0.6), rgba(189,0,255,0.8));
+            box-shadow: 0 0 15px #00ffff, 0 0 30px #bd00ff;
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            animation: spawnPop 0.3s ease-out;
+        }
+
+        @keyframes spawnPop {
+            0% { transform: translate(-50%, -50%) scale(0); }
+            80% { transform: translate(-50%, -50%) scale(1.1); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="screen-menu" class="screen">
+        <h1>COSMIC DUO</h1>
+        <button onclick="setupHost()">CREATE ROOM</button>
+        <button onclick="showJoinUI()">JOIN ROOM</button>
+        <button class="fs-btn" onclick="toggleFullscreen()">[ ] Fullscreen</button>
+    </div>
+
+    <div id="screen-host" class="screen hidden">
+        <p>KODE PAIRING ANDA</p>
+        <div id="room-code-display">...</div>
+        <p class="loading-text">Menunggu Player 2...</p>
+        <button class="fs-btn" onclick="toggleFullscreen()">[ ] Fullscreen</button>
+    </div>
+
+    <div id="screen-join" class="screen hidden">
+        <p>MASUKKAN KODE 6 DIGIT</p>
+        <input type="number" id="join-input" placeholder="000000" oninput="limitInput(this)">
+        <button onclick="connectToHost()">CONNECT</button>
+        <button onclick="backToMenu()" style="border-color:#555; color:#555;">BACK</button>
+    </div>
+
+    <div id="screen-game" class="screen hidden" style="background: transparent; pointer-events: none;">
+        <div id="hud">WAKTU: <span id="timer">280</span></div>
+        <div id="role-indicator">...</div>
+    </div>
+
+    <div id="game-area" class="hidden"></div>
+
+    <script>
+        // --- CONFIG & STATE ---
+        let peer = null;
+        let conn = null;
+        let myRole = ''; // 'host' (P1) or 'client' (P2)
+        let gameActive = false;
+        let timeLeft = 280;
+        let gameLoopId;
+        let bubbles = []; // Array to store bubble DOM elements for Client
+        
+        // Prefix ID unik agar tidak bentrok di server public PeerJS
+        const APP_PREFIX = 'cosmic-game-v1-'; 
+
+        // --- AUDIO (Optional Synthesis) ---
+        function playSound(type) {
+            // Simple beep logic using Web Audio API could go here, 
+            // but kept silent for simplicity as requested just visual code.
+        }
+
+        // --- FULLSCREEN ---
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => console.log(err));
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // --- NAVIGATION ---
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function backToMenu() {
+            showScreen('screen-menu');
+        }
+
+        function showJoinUI() {
+            showScreen('screen-join');
+        }
+
+        function limitInput(el) {
+            if (el.value.length > 6) el.value = el.value.slice(0, 6);
+        }
+
+        // --- HOST LOGIC (PLAYER 1) ---
+        function setupHost() {
+            // Generate 6 digit random code
+            const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const peerId = APP_PREFIX + randomCode;
+
+            document.getElementById('room-code-display').innerText = randomCode;
+            showScreen('screen-host');
+
+            // Initialize Peer
+            peer = new Peer(peerId);
+
+            peer.on('open', (id) => {
+                console.log('Host ID:', id);
+            });
+
+            peer.on('connection', (c) => {
+                conn = c;
+                setupConnectionEvents('host');
+            });
+
+            peer.on('error', (err) => {
+                alert("Error koneksi: " + err.type);
+                backToMenu();
+            });
+        }
+
+        // --- CLIENT LOGIC (PLAYER 2) ---
+        function connectToHost() {
+            const inputCode = document.getElementById('join-input').value;
+            if (inputCode.length !== 6) {
+                alert("Masukkan 6 digit kode!");
+                return;
+            }
+
+            const targetId = APP_PREFIX + inputCode;
+            
+            // Client doesn't need a specific ID
+            peer = new Peer(); 
+
+            peer.on('open', () => {
+                conn = peer.connect(targetId);
+                setupConnectionEvents('client');
+            });
+
+            peer.on('error', (err) => {
+                alert("Gagal terhubung. Cek kode atau koneksi internet.");
+            });
+        }
+
+        // --- CONNECTION HANDLER ---
+        function setupConnectionEvents(role) {
+            myRole = role;
+
+            conn.on('open', () => {
+                // Connection established, start game
+                console.log("Connected!");
+                
+                // Kirim sinyal start
+                if (role === 'host') {
+                    conn.send({ type: 'START_GAME' });
+                    initializeGame();
+                }
+            });
+
+            conn.on('data', (data) => {
+                handleData(data);
+            });
+
+            conn.on('close', () => {
+                alert("Teman bermain terputus!");
+                location.reload();
+            });
+        }
+
+        function handleData(data) {
+            if (data.type === 'START_GAME') {
+                initializeGame();
+            } else if (data.type === 'SPAWN_BUBBLE') {
+                // Client receives spawn command
+                createBubbleVisual(data.x, data.y, data.vx, data.vy);
+            }
+        }
+
+        // --- GAME LOGIC ---
+        function initializeGame() {
+            gameActive = true;
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            document.getElementById('screen-game').classList.remove('hidden');
+            document.getElementById('game-area').classList.remove('hidden');
+
+            // Set role text
+            const roleText = myRole === 'host' ? "PLAYER 1: SENTUH LAYAR!" : "PLAYER 2: PECAHKAN BUBBLE!";
+            document.getElementById('role-indicator').innerText = roleText;
+
+            // Start Timer
+            startTimer();
+
+            // Input Listeners
+            if (myRole === 'host') {
+                const zone = document.getElementById('game-area');
+                zone.addEventListener('touchstart', handleHostTouch, {passive: false});
+                zone.addEventListener('mousedown', handleHostTouch); // For testing on PC
+            }
+
+            // Client Loop (untuk menggerakkan bubble)
+            if (myRole === 'client') {
+                requestAnimationFrame(gameLoopClient);
+            }
+        }
+
+        function startTimer() {
+            const timerEl = document.getElementById('timer');
+            const interval = setInterval(() => {
+                if (!gameActive) {
+                    clearInterval(interval);
+                    return;
+                }
+                timeLeft--;
+                timerEl.innerText = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(interval);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            gameActive = false;
+            alert("WAKTU HABIS!");
+            location.reload();
+        }
+
+        // --- PLAYER 1 (HOST) SPAWNING ---
+        function handleHostTouch(e) {
+            if (!gameActive) return;
+            e.preventDefault();
+
+            // Support multi-touch
+            let touches = e.touches || [{clientX: e.clientX, clientY: e.clientY}];
+
+            for (let i = 0; i < touches.length; i++) {
+                const x = touches[i].clientX;
+                const y = touches[i].clientY;
+
+                // Visual feedback for Host (optional, just a small flash)
+                showClickFeedback(x, y);
+
+                // Calculate speed based on time
+                // Time 280 -> Slow, Time 0 -> Fast
+                // Base speed 2, max speed 8
+                const timeProgress = (280 - timeLeft) / 280; 
+                const speedY = 2 + (timeProgress * 6); 
+
+                // Send to P2
+                if (conn && conn.open) {
+                    conn.send({
+                        type: 'SPAWN_BUBBLE',
+                        x: x / window.innerWidth, // Normalize coordinates (0-1)
+                        y: y / window.innerHeight,
+                        vx: (Math.random() - 0.5) * 2, // Random drift X
+                        vy: speedY
+                    });
+                }
+            }
+        }
+
+        function showClickFeedback(x, y) {
+            const el = document.createElement('div');
+            el.style.position = 'absolute';
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            el.style.width = '10px';
+            el.style.height = '10px';
+            el.style.background = 'white';
+            el.style.borderRadius = '50%';
+            el.style.pointerEvents = 'none';
+            document.getElementById('game-area').appendChild(el);
+            
+            setTimeout(() => el.remove(), 200);
+        }
+
+        // --- PLAYER 2 (CLIENT) RENDERING & INTERACTION ---
+        function createBubbleVisual(relX, relY, vx, vy) {
+            if (myRole !== 'client') return;
+
+            const x = relX * window.innerWidth;
+            const y = relY * window.innerHeight; // Start where P1 touched
+            
+            const b = document.createElement('div');
+            b.classList.add('bubble');
+            
+            // Random Size
+            const size = 40 + Math.random() * 40;
+            b.style.width = size + 'px';
+            b.style.height = size + 'px';
+            
+            // Initial Pos
+            b.style.left = x + 'px';
+            b.style.top = y + 'px';
+
+            // Data for movement
+            b.dataset.vx = vx;
+            b.dataset.vy = vy;
+            b.dataset.x = x;
+            b.dataset.y = y;
+
+            // Tap to pop
+            b.addEventListener('pointerdown', (e) => {
+                popBubble(b);
+            });
+
+            document.getElementById('game-area').appendChild(b);
+            bubbles.push(b);
+        }
+
+        function popBubble(el) {
+            // Visual Pop
+            el.style.transform = "translate(-50%, -50%) scale(1.5)";
+            el.style.opacity = "0";
+            el.style.transition = "0.1s";
+            
+            setTimeout(() => {
+                if(el.parentNode) el.parentNode.removeChild(el);
+                bubbles = bubbles.filter(b => b !== el);
+            }, 100);
+        }
+
+        function gameLoopClient() {
+            if (!gameActive) return;
+
+            // Move bubbles
+            for (let i = 0; i < bubbles.length; i++) {
+                let b = bubbles[i];
+                let x = parseFloat(b.dataset.x);
+                let y = parseFloat(b.dataset.y);
+                let vx = parseFloat(b.dataset.vx);
+                let vy = parseFloat(b.dataset.vy);
+
+                x += vx;
+                y += vy;
+
+                b.dataset.x = x;
+                b.dataset.y = y;
+                b.style.left = x + 'px';
+                b.style.top = y + 'px';
+
+                // Remove if out of screen
+                if (y > window.innerHeight + 100) {
+                    if(b.parentNode) b.parentNode.removeChild(b);
+                    bubbles.splice(i, 1);
+                    i--;
+                }
+            }
+
+            requestAnimationFrame(gameLoopClient);
+        }
+
+    </script>
+</body>
+</html>
