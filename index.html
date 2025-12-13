@@ -1,19 +1,20 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Samurai Predict Multiplayer</title>
+    <title>Samurai Predict Multiplayer v2</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Shojumaru&family=Roboto:wght@400;700&display=swap');
+        @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css'); /* Untuk Icon */
 
         :root {
             --bg-color: #1a1a1a;
             --text-color: #fff;
             --my-glow: 0 0 15px #00eaff;    /* Biru untuk diri sendiri */
             --enemy-glow: 0 0 15px #ff0055; /* Merah untuk musuh */
+            --selection-color: #00eaff;
         }
 
         body {
@@ -39,8 +40,7 @@
         /* LOBBY UI */
         #lobby {
             background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url('https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sbg.jpg');
-            background-size: cover;
-            background-position: center;
+            background-size: cover; background-position: center;
         }
         h1 {
             font-family: 'Shojumaru', cursive; color: #ff3333;
@@ -80,27 +80,21 @@
         .kat-bar { height: 5px; width: 100%; background: #00aaff; transition: width 0.3s; margin-top: 2px; }
         .label { font-size: 0.7rem; font-weight: bold; text-transform: uppercase; }
 
-        /* BATTLEFIELD & GRID */
+        /* BATTLEFIELD & CHARACTER */
         .battlefield {
-            width: 100%; height: 40%; position: relative;
-            display: flex; align-items: flex-end; margin-top: 50px;
-        }
-        .grid-layer {
-            position: absolute; bottom: 0; width: 100%; height: 50px; display: flex;
-        }
-        .grid-cell {
-            width: 20%; border-bottom: 1px solid rgba(255,255,255,0.2);
-            text-align: center; color: rgba(255,255,255,0.3); font-size: 10px;
+            width: 100%; height: 60%; /* Diberi ruang lebih */
+            position: relative; display: flex; align-items: flex-end; margin-top: 50px;
         }
         .character {
-            position: absolute; bottom: 10px; width: 20%; height: auto;
+            position: absolute; bottom: 0; width: 20%; height: auto;
             transition: left 0.3s ease-out; display: flex; justify-content: center; align-items: flex-end;
         }
         .char-img {
-            width: 180%; max-width: 200px;
+            width: 250%; /* Karakter diperbesar */
+            max-width: 250px;
+            image-rendering: pixelated;
         }
         
-        /* Perspective Handling: My char always glows blue, Enemy always red */
         #my-char .char-img { filter: drop-shadow(var(--my-glow)); }
         #enemy-char .char-img { filter: drop-shadow(var(--enemy-glow)); transform: scaleX(-1); }
 
@@ -118,28 +112,61 @@
             100% { transform: translate(0, 0) rotate(0deg); }
         }
 
-        /* CONTROLS */
+        /* CONTROLS AREA */
         .controls-area {
-            width: 100%; height: 40%; background: rgba(0,0,0,0.8);
+            width: 100%; height: 30%; /* Area control diperkecil */
+            background: rgba(0,0,0,0.8);
             border-top: 2px solid #fff; display: flex; flex-direction: column; align-items: center; padding: 10px;
         }
+
         .queue-display {
-            height: 40px; width: 90%; border: 1px dashed #555; margin-bottom: 10px;
-            display: flex; align-items: center; justify-content: center; gap: 10px; color: #00eaff; font-size: 0.8rem;
+            height: 30px; width: 90%; 
+            margin-bottom: 10px; display: flex; align-items: center; justify-content: flex-start; 
+            gap: 10px; color: #ccc; font-size: 0.8rem;
         }
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; width: 95%; }
+
+        .btn-grid { 
+            display: grid; grid-template-columns: repeat(5, 1fr); /* 5 kolom: 4 aksi + ready */
+            gap: 10px; width: 95%; height: 60px;
+        }
+
         .action-btn {
-            background: #222; border: 1px solid #666; color: white; padding: 15px 0;
+            background: #222; border: 2px solid #666; color: white; padding: 10px 0;
             border-radius: 5px; font-size: 0.8rem; text-transform: uppercase; box-shadow: 0 4px 0 #000;
+            position: relative; /* Untuk penomoran */
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
         .action-btn:active { transform: translateY(4px); box-shadow: 0 0 0 #000; }
+        
         .btn-maju { background: #2e7d32; }
         .btn-mundur { background: #5d4037; }
         .btn-attack { background: #c62828; }
         .btn-tangkis { background: #1565c0; }
-        .timer-overlay {
-            position: absolute; font-size: 5rem; font-weight: bold; color: white;
-            text-shadow: 0 0 20px black; z-index: 100; pointer-events: none; display: none;
+        .btn-ready { 
+            background: #00eaff; color: #000; font-weight: bold;
+            grid-column: span 1;
+        }
+
+        .selected-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border: 4px solid var(--selection-color);
+            border-radius: 5px;
+            pointer-events: none;
+            z-index: 5;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        .selection-number {
+            position: absolute;
+            top: -10px; right: -10px;
+            background: var(--selection-color);
+            color: #000;
+            font-size: 0.7rem;
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-weight: bold;
         }
 
         /* WAITING OVERLAY */
@@ -147,6 +174,12 @@
             position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85);
             z-index: 90; display: flex; align-items: center; justify-content: center; color: white;
             flex-direction: column; text-align: center;
+        }
+
+        /* TIMER OVERLAY */
+        .timer-overlay {
+            position: absolute; font-size: 5rem; font-weight: bold; color: white;
+            text-shadow: 0 0 20px black; z-index: 100; pointer-events: none; display: none;
         }
 
         /* RESULT */
@@ -159,8 +192,12 @@
 <body>
 
     <div style="display:none;">
-        <img id="preload-1" src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sidle.png">
-        <img id="preload-2" src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Spark.png">
+        <img id="preload-idle" src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sidle.png">
+        <img id="preload-maju" src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Smaju.png">
+        <img id="preload-mundur" src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Smundur.png">
+        <img id="preload-attack" src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sattack.png">
+        <img id="preload-tangkis" src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Stangkis.png">
+        <img id="preload-spark" src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Spark.png">
     </div>
 
     <div id="lobby" class="screen">
@@ -174,7 +211,7 @@
         <div id="create-view" class="hidden" style="text-align:center;">
             <p>Bagikan Kode ke Lawan:</p>
             <h2 id="room-code-display" style="font-size: 3rem; color: #00eaff;">----</h2>
-            <p class="status-msg" id="host-status">Menunggu lawan...</p>
+            <p class="status-msg" id="host-status">Menunggu lawan join...</p>
             <button class="btn-main" onclick="location.reload()">BATAL</button>
         </div>
 
@@ -211,14 +248,6 @@
         </div>
 
         <div class="battlefield" id="battlefield">
-            <div class="grid-layer">
-                <div class="grid-cell">1</div>
-                <div class="grid-cell">2</div>
-                <div class="grid-cell">3</div>
-                <div class="grid-cell">4</div>
-                <div class="grid-cell">5</div>
-            </div>
-
             <div id="fx-layer">
                 <img id="spark-fx" class="spark" src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Spark.png">
             </div>
@@ -232,15 +261,25 @@
         </div>
 
         <div class="controls-area" id="controls-area">
-            <div style="color:white; margin-bottom:5px;">PILIH 3 GERAKAN</div>
+            <div style="color:white; margin-bottom:5px;">PILIH HINGGA 4 GERAKAN</div>
             <div class="queue-display" id="move-queue"></div>
-            <div class="btn-grid" id="input-buttons">
-                <button class="action-btn btn-mundur" onclick="addMove('mundur')">Mundur</button>
-                <button class="action-btn btn-attack" onclick="addMove('attack')">Attack</button>
-                <button class="action-btn btn-tangkis" onclick="addMove('tangkis')">Tangkis</button>
-                <button class="action-btn btn-maju" onclick="addMove('maju')">Maju</button>
+            
+            <div class="btn-grid">
+                <button class="action-btn btn-maju" data-move="maju" onclick="addMove('maju', this)">
+                    <i class="fa-solid fa-arrow-right"></i> Maju
+                </button>
+                <button class="action-btn btn-attack" data-move="attack" onclick="addMove('attack', this)">
+                    <i class="fa-solid fa-forward"></i> Attack
+                </button>
+                <button class="action-btn btn-mundur" data-move="mundur" onclick="addMove('mundur', this)">
+                    <i class="fa-solid fa-arrow-left"></i> Mundur
+                </button>
+                <button class="action-btn btn-tangkis" data-move="tangkis" onclick="addMove('tangkis', this)">
+                    <i class="fa-solid fa-shield-halved"></i> Tangkis
+                </button>
+                <button class="action-btn btn-ready" id="ready-btn" onclick="sendMoves()">READY</button>
             </div>
-            <button id="ready-btn" class="btn-main" style="width:90%; padding:10px; margin-top:10px; background:#00eaff; color:#000;" onclick="sendMoves()">READY</button>
+            <p class="status-msg" id="control-msg">Klik tombol untuk memilih gerakan.</p>
         </div>
     </div>
 
@@ -251,6 +290,7 @@
 
     <script>
         /* ================= CONFIGURATION & ASSETS ================= */
+        const MAX_MOVES = 4; // Batas gerakan
         const ASSETS = {
             idle: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sidle.png',
             maju: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Smaju.png',
@@ -259,27 +299,33 @@
             tangkis: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Stangkis.png'
         };
 
-        // PeerJS ID Prefix to ensure uniqueness
         const APP_ID_PREFIX = "samurai-predict-game-v1-"; 
-
+        
         let peer = null;
         let conn = null;
         let myRole = null; // 'host' or 'joiner'
 
-        // Game State
-        // Grid logic: 0, 1, 2, 3, 4 (Visual 1-5)
-        // Host starts at 1 (Grid 2), Joiner starts at 3 (Grid 4)
         let gameState = {
             host: { hp: 100, katana: 100, grid: 1 }, 
             joiner: { hp: 100, katana: 100, grid: 3 },
             myMoves: [],
-            enemyMoves: [], // Will be filled when data received
+            enemyMoves: [], 
             roundActive: false
         };
 
+        // DOM Elements for easy access
+        const DOMElements = {
+            controlsArea: document.getElementById('controls-area'),
+            readyBtn: document.getElementById('ready-btn'),
+            controlMsg: document.getElementById('control-msg'),
+            timerDisplay: document.getElementById('timer-display'),
+            waitingOverlay: document.getElementById('waiting-overlay'),
+            moveQueue: document.getElementById('move-queue'),
+        };
+
         /* ================= NETWORKING (PEERJS) ================= */
-        
-        // 1. HOST FUNCTION
+        // (Fungsi setupHost, showJoin, joinGame, setupConnectionHandlers, handleData tetap sama)
+
         function setupHost() {
             document.getElementById('lobby-menu').classList.add('hidden');
             document.getElementById('create-view').classList.remove('hidden');
@@ -287,7 +333,6 @@
             const roomCode = Math.floor(1000 + Math.random() * 9000);
             document.getElementById('room-code-display').innerText = roomCode;
 
-            // Initialize Peer as Host
             peer = new Peer(APP_ID_PREFIX + roomCode);
 
             peer.on('open', (id) => {
@@ -308,7 +353,6 @@
             });
         }
 
-        // 2. JOIN FUNCTION
         function showJoin() {
             document.getElementById('lobby-menu').classList.add('hidden');
             document.getElementById('join-view').classList.remove('hidden');
@@ -320,7 +364,6 @@
 
             document.getElementById('join-status').innerText = "Menghubungkan...";
             
-            // Create temporary peer to connect
             peer = new Peer(); 
 
             peer.on('open', (id) => {
@@ -339,7 +382,6 @@
             });
         }
 
-        // 3. DATA HANDLER
         function setupConnectionHandlers() {
             conn.on('data', (data) => {
                 handleData(data);
@@ -365,30 +407,73 @@
             updateUI();
         }
 
-        function addMove(type) {
-            if (gameState.myMoves.length < 3 && !gameState.roundActive) {
-                gameState.myMoves.push(type);
-                renderQueue();
-            }
+        function clearMoveSelectionUI() {
+            const moveButtons = document.querySelectorAll('.action-btn[data-move]');
+            moveButtons.forEach(btn => {
+                btn.classList.remove('selected');
+                btn.innerHTML = btn.innerText; // Hapus overlay/nomor
+                btn.style.borderColor = ''; 
+            });
+            DOMElements.moveQueue.innerHTML = '';
         }
 
-        function renderQueue() {
-            document.getElementById('move-queue').innerHTML = gameState.myMoves
-                .map((m, i) => `<span>${i+1}.${m}</span>`).join(' > ');
+        function addMove(type, button) {
+            if (gameState.myMoves.length < MAX_MOVES && !gameState.roundActive) {
+                
+                // Jika gerakan sudah ada di queue, hapus dari queue dan hapus overlay
+                const existingIndex = gameState.myMoves.findIndex(m => m === type);
+                
+                if (button.classList.contains('selected')) {
+                    // Jika sudah dipilih, batalkan pilihan terakhir
+                    gameState.myMoves.pop();
+                    clearMoveSelectionUI(); // Reset visual
+                    renderQueueUI(); // Render ulang
+                } else {
+                    // Tambahkan gerakan baru
+                    gameState.myMoves.push(type);
+                    renderQueueUI();
+                }
+
+            } else if (gameState.myMoves.length === MAX_MOVES) {
+                DOMElements.controlMsg.innerText = `Batas maksimum ${MAX_MOVES} gerakan tercapai. Tekan READY.`;
+            }
+        }
+        
+        function renderQueueUI() {
+            const moveButtons = document.querySelectorAll('.action-btn[data-move]');
+            DOMElements.moveQueue.innerHTML = 'Urutan: ' + gameState.myMoves.map(m => `[${m}]`).join(' ');
+            
+            // Render visual selection
+            clearMoveSelectionUI();
+            
+            gameState.myMoves.forEach((move, index) => {
+                const btn = document.querySelector(`.action-btn[data-move="${move}"]`);
+                if (btn) {
+                    // Buat overlay dan nomor urut
+                    let numberSpan = document.createElement('span');
+                    numberSpan.className = 'selection-number';
+                    numberSpan.innerText = index + 1;
+                    
+                    let overlayDiv = document.createElement('div');
+                    overlayDiv.className = 'selected-overlay';
+                    overlayDiv.appendChild(numberSpan);
+
+                    btn.appendChild(overlayDiv);
+                    btn.classList.add('selected');
+                }
+            });
         }
 
         function sendMoves() {
-            if (gameState.myMoves.length !== 3) {
-                alert("Pilih 3 gerakan!");
+            if (gameState.myMoves.length === 0) {
+                DOMElements.controlMsg.innerText = "Pilih minimal 1 gerakan!";
                 return;
             }
 
-            // Lock UI
-            document.getElementById('input-buttons').style.pointerEvents = 'none';
-            document.getElementById('ready-btn').style.display = 'none';
-            document.getElementById('waiting-overlay').classList.remove('hidden');
+            // Hide controls area
+            DOMElements.controlsArea.classList.add('hidden');
+            DOMElements.waitingOverlay.classList.remove('hidden');
 
-            // Send to opponent
             if (conn && conn.open) {
                 conn.send({ type: 'MOVES', moves: gameState.myMoves });
             }
@@ -397,9 +482,8 @@
         }
 
         function checkRoundStart() {
-            // Check if WE are ready AND ENEMY moves have arrived
-            if (gameState.myMoves.length === 3 && gameState.enemyMoves.length === 3) {
-                document.getElementById('waiting-overlay').classList.add('hidden');
+            if (gameState.myMoves.length > 0 && gameState.enemyMoves.length > 0) {
+                DOMElements.waitingOverlay.classList.add('hidden');
                 startCombatSequence();
             }
         }
@@ -407,37 +491,36 @@
         function startCombatSequence() {
             gameState.roundActive = true;
             
-            // Countdown Timer
             let count = 3;
-            const timerDiv = document.getElementById('timer-display');
-            timerDiv.style.display = 'block';
-            timerDiv.innerText = count;
+            DOMElements.timerDisplay.style.display = 'block';
+            DOMElements.timerDisplay.innerText = count;
 
             const interval = setInterval(() => {
                 count--;
-                if (count <= 0) {
+                if (count < 0) {
                     clearInterval(interval);
-                    timerDiv.style.display = 'none';
+                    DOMElements.timerDisplay.style.display = 'none';
                     executeMoves();
                 } else {
-                    timerDiv.innerText = count;
+                    DOMElements.timerDisplay.innerText = count === 0 ? "FIGHT!" : count;
                 }
             }, 1000);
         }
 
         async function executeMoves() {
-            // Determine who is P1 (Host) moves vs P2 (Joiner) moves logic
-            // But we have myMoves and enemyMoves. 
-            // We need to know who is 'host' character data to update global state correctly.
-            
             let hostMoves = myRole === 'host' ? gameState.myMoves : gameState.enemyMoves;
             let joinerMoves = myRole === 'host' ? gameState.enemyMoves : gameState.myMoves;
+            
+            // Loop sejumlah gerakan terbanyak
+            const totalMoves = Math.max(hostMoves.length, joinerMoves.length);
 
-            for (let i = 0; i < 3; i++) {
+            for (let i = 0; i < totalMoves; i++) {
                 if (gameState.host.hp <= 0 || gameState.joiner.hp <= 0) break;
                 
-                // Execute logic based on Host/Joiner moves
-                await playRound(hostMoves[i], joinerMoves[i]);
+                const hostMove = hostMoves[i] || 'idle';
+                const joinerMove = joinerMoves[i] || 'idle';
+                
+                await playRound(hostMove, joinerMove);
             }
 
             checkGameOver();
@@ -448,25 +531,19 @@
                 gameState.enemyMoves = [];
                 gameState.roundActive = false;
                 
-                renderQueue();
-                
-                // UI Reset
-                document.getElementById('input-buttons').style.pointerEvents = 'auto';
-                document.getElementById('ready-btn').style.display = 'block';
+                DOMElements.controlsArea.classList.remove('hidden');
+                clearMoveSelectionUI();
                 setAnim('my', 'idle');
                 setAnim('enemy', 'idle');
             }
         }
 
         /* ================= CORE BATTLE CALCULATION ================= */
-        // Note: Logic is calculated on both devices simultaneously.
-        // Since it's deterministic (no RNG), they will stay in sync.
         
         function playRound(hostMove, joinerMove) {
             return new Promise(resolve => {
+                
                 // 1. Animation Setting
-                // If I am Host: My Anim = hostMove, Enemy Anim = joinerMove
-                // If I am Joiner: My Anim = joinerMove, Enemy Anim = hostMove
                 if (myRole === 'host') {
                     setAnim('my', hostMove);
                     setAnim('enemy', joinerMove);
@@ -475,48 +552,50 @@
                     setAnim('enemy', hostMove);
                 }
 
-                // 2. Logic Calculation (Updating Global State: gameState.host & gameState.joiner)
-                // MOVEMENT
-                if (hostMove === 'maju' && gameState.host.grid < 4) gameState.host.grid++;
-                if (hostMove === 'mundur' && gameState.host.grid > 0) gameState.host.grid--;
-                
-                if (joinerMove === 'maju' && gameState.joiner.grid > 0) gameState.joiner.grid--; // Joiner moves Left (visually to Host)
-                if (joinerMove === 'mundur' && gameState.joiner.grid < 4) gameState.joiner.grid++;
-
-                updateUI(); // Move characters
-
-                // INTERACTION
+                // 2. Logic Calculation 
                 let spark = false;
                 let hitHost = false;
                 let hitJoiner = false;
 
-                // Attack vs Attack
-                if (hostMove === 'attack' && joinerMove === 'attack') {
-                    gameState.host.hp -= 10; gameState.host.katana -= 10;
-                    gameState.joiner.hp -= 10; gameState.joiner.katana -= 10;
-                    hitHost = true; hitJoiner = true;
-                }
-                // Host Attacking
-                else if (hostMove === 'attack') {
-                    if (joinerMove === 'maju' || joinerMove === 'mundur') {
-                        gameState.joiner.hp -= 20;
-                        hitJoiner = true;
-                    } else if (joinerMove === 'tangkis') {
-                        gameState.host.katana -= 20;
-                        spark = true;
-                    }
-                }
-                // Joiner Attacking
-                else if (joinerMove === 'attack') {
-                    if (hostMove === 'maju' || hostMove === 'mundur') {
-                        gameState.host.hp -= 20;
-                        hitHost = true;
-                    } else if (hostMove === 'tangkis') {
-                        gameState.joiner.katana -= 20;
-                        spark = true;
-                    }
-                }
+                // MOVEMENT
+                if (hostMove === 'maju' && gameState.host.grid < 4) gameState.host.grid++;
+                if (hostMove === 'mundur' && gameState.host.grid > 0) gameState.host.grid--;
+                
+                if (joinerMove === 'maju' && gameState.joiner.grid > 0) gameState.joiner.grid--;
+                if (joinerMove === 'mundur' && gameState.joiner.grid < 4) gameState.joiner.grid++;
 
+                updateUI(); // Move characters instantly
+
+                // INTERACTION (hanya jika minimal salah satu Attack)
+                if (hostMove === 'attack' || joinerMove === 'attack') {
+                     // Attack vs Attack
+                    if (hostMove === 'attack' && joinerMove === 'attack') {
+                        gameState.host.hp -= 10; gameState.host.katana -= 10;
+                        gameState.joiner.hp -= 10; gameState.joiner.katana -= 10;
+                        hitHost = true; hitJoiner = true;
+                    }
+                    // Host Attacking
+                    else if (hostMove === 'attack') {
+                        if (joinerMove === 'maju' || joinerMove === 'mundur' || joinerMove === 'idle') {
+                            gameState.joiner.hp -= 20;
+                            hitJoiner = true;
+                        } else if (joinerMove === 'tangkis') {
+                            gameState.host.katana -= 20;
+                            spark = true;
+                        }
+                    }
+                    // Joiner Attacking
+                    else if (joinerMove === 'attack') {
+                        if (hostMove === 'maju' || hostMove === 'mundur' || hostMove === 'idle') {
+                            gameState.host.hp -= 20;
+                            hitHost = true;
+                        } else if (hostMove === 'tangkis') {
+                            gameState.joiner.katana -= 20;
+                            spark = true;
+                        }
+                    }
+                }
+                
                 // 3. FX
                 if (spark) showSpark();
                 if (hitHost || hitJoiner) shakeScreen();
@@ -530,8 +609,6 @@
         /* ================= VISUALS & HELPERS ================= */
 
         function updateUI() {
-            // HP & Katana Bars
-            // Determine which bar is mine based on role
             const myData = myRole === 'host' ? gameState.host : gameState.joiner;
             const enemyData = myRole === 'host' ? gameState.joiner : gameState.host;
 
@@ -541,23 +618,14 @@
             document.getElementById('enemy-hp-bar').style.width = Math.max(0, enemyData.hp) + '%';
             document.getElementById('enemy-kat-bar').style.width = Math.max(0, enemyData.katana) + '%';
 
-            // POSITIONING LOGIC
-            // The request: "Owner always on Left. Enemy on Right."
-            // Visual Grid is 1-5 (CSS Left %).
-            // Grid Data is 0-4.
-            
+            // POSITIONING LOGIC (Relative Rendering)
             let myVisualGrid, enemyVisualGrid;
 
             if (myRole === 'host') {
-                // As Host: I see Grid 0 on Left, Grid 4 on Right.
-                // My Pos = grid * 20
-                // Enemy Pos = grid * 20
                 myVisualGrid = gameState.host.grid;
                 enemyVisualGrid = gameState.joiner.grid;
             } else {
-                // As Joiner: I see the world FLIPPED.
-                // My (Joiner) Real Grid 4 is visually Left (0).
-                // Formula: VisualPos = 4 - RealGrid
+                // Flipped Perspective
                 myVisualGrid = 4 - gameState.joiner.grid;
                 enemyVisualGrid = 4 - gameState.host.grid;
             }
@@ -568,7 +636,7 @@
 
         function setAnim(who, type) {
             // who = 'my' or 'enemy'
-            document.getElementById(`${who}-img`).src = ASSETS[type];
+            document.getElementById(`${who}-img`).src = ASSETS[type] || ASSETS.idle; // Gunakan idle jika move tidak terdefinisi
         }
 
         function showSpark() {
@@ -589,7 +657,6 @@
                 const resTitle = document.getElementById('result-title');
                 resScreen.classList.remove('hidden');
 
-                // Check winner relative to ME
                 let myHp = myRole === 'host' ? gameState.host.hp : gameState.joiner.hp;
                 let enemyHp = myRole === 'host' ? gameState.joiner.hp : gameState.host.hp;
 
@@ -608,3 +675,4 @@
     </script>
 </body>
 </html>
+
