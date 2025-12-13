@@ -1,581 +1,610 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2D Multiplayer Platformer</title>
+    <title>Samurai Predict Multiplayer</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            touch-action: none; /* Mencegah zoom/scroll pada mobile */
-            user-select: none;
+        @import url('https://fonts.googleapis.com/css2?family=Shojumaru&family=Roboto:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #fff;
+            --my-glow: 0 0 15px #00eaff;    /* Biru untuk diri sendiri */
+            --enemy-glow: 0 0 15px #ff0055; /* Merah untuk musuh */
         }
 
         body {
-            background-color: #ffffff; /* Putih Polos */
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Roboto', sans-serif;
             overflow: hidden;
-            font-family: 'Arial', sans-serif;
-            color: #333;
+            height: 100vh; width: 100vw;
+            user-select: none; -webkit-user-select: none;
         }
+
+        /* SCREEN MANAGERS */
+        .screen {
+            position: absolute; width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 10; transition: opacity 0.5s;
+            background: #000;
+        }
+        .hidden { opacity: 0; pointer-events: none; z-index: -1; }
 
         /* LOBBY UI */
         #lobby {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
+            background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url('https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sbg.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+        h1 {
+            font-family: 'Shojumaru', cursive; color: #ff3333;
+            text-shadow: 2px 2px 0 #fff; font-size: 2.5rem; margin-bottom: 30px; text-align: center;
+        }
+        .btn-main {
+            background: #333; border: 2px solid #fff; color: #fff;
+            padding: 15px 40px; font-size: 1.2rem; margin: 10px;
+            cursor: pointer; border-radius: 8px; font-weight: bold; width: 80%; max-width: 300px;
+        }
+        .btn-main:active { transform: scale(0.95); background: #555; }
+        input[type="number"] {
+            padding: 15px; font-size: 1.5rem; text-align: center;
+            border-radius: 8px; border: none; margin-bottom: 20px;
+            width: 200px; letter-spacing: 5px;
+        }
+        .status-msg { margin-top: 10px; color: #00eaff; font-size: 0.9rem; text-align: center; padding: 0 20px; }
+
+        /* ARENA UI */
+        #arena {
+            background-image: url('https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sbg.jpg');
+            background-size: cover; background-position: center;
+            justify-content: space-between; 
         }
 
-        .lobby-box {
-            background: #f0f0f0;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            width: 80%;
-            max-width: 400px;
+        /* HUD */
+        .hud-top {
+            width: 100%; padding: 10px; display: flex; justify-content: space-between;
+            box-sizing: border-box; background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
+            position: absolute; top: 0; z-index: 20;
         }
+        .player-stats { width: 45%; display: flex; flex-direction: column; gap: 5px; }
+        .bar-container { width: 100%; height: 15px; background: #333; border: 1px solid #fff; position: relative; }
+        .hp-bar { height: 100%; transition: width 0.3s; }
+        .my-hp { background: #00ff00; }
+        .enemy-hp { background: #ff0000; }
+        .kat-bar { height: 5px; width: 100%; background: #00aaff; transition: width 0.3s; margin-top: 2px; }
+        .label { font-size: 0.7rem; font-weight: bold; text-transform: uppercase; }
 
-        input {
-            padding: 10px;
-            font-size: 18px;
-            width: 100%;
-            margin: 10px 0;
-            text-align: center;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+        /* BATTLEFIELD & GRID */
+        .battlefield {
+            width: 100%; height: 40%; position: relative;
+            display: flex; align-items: flex-end; margin-top: 50px;
         }
-
-        button {
-            padding: 10px 20px;
-            font-size: 18px;
-            background: #333;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-            width: 100%;
+        .grid-layer {
+            position: absolute; bottom: 0; width: 100%; height: 50px; display: flex;
         }
-
-        button:active { background: #555; }
-
-        /* GAME UI */
-        #gameUI {
-            display: none; /* Hidden by default */
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none; /* Biar tembus ke canvas */
+        .grid-cell {
+            width: 20%; border-bottom: 1px solid rgba(255,255,255,0.2);
+            text-align: center; color: rgba(255,255,255,0.3); font-size: 10px;
         }
-
-        canvas {
-            display: block;
+        .character {
+            position: absolute; bottom: 10px; width: 20%; height: auto;
+            transition: left 0.3s ease-out; display: flex; justify-content: center; align-items: flex-end;
         }
-
-        /* HP BAR */
-        #hpContainer {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            width: 200px;
-            height: 20px;
-            background: #ddd;
-            border: 2px solid #333;
+        .char-img {
+            width: 180%; max-width: 200px;
         }
+        
+        /* Perspective Handling: My char always glows blue, Enemy always red */
+        #my-char .char-img { filter: drop-shadow(var(--my-glow)); }
+        #enemy-char .char-img { filter: drop-shadow(var(--enemy-glow)); transform: scaleX(-1); }
 
-        #hpBar {
-            width: 100%;
-            height: 100%;
-            background: #ff4444;
+        /* FX */
+        #fx-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 50; display: flex; justify-content: center; align-items: center;
+        }
+        .spark { position: absolute; width: 200px; opacity: 0; transition: opacity 0.1s; mix-blend-mode: overlay; }
+        .shake { animation: shake 0.5s; }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
         }
 
         /* CONTROLS */
-        .control-area {
-            position: absolute;
-            bottom: 20px;
-            pointer-events: auto;
-            display: flex;
-            gap: 15px;
+        .controls-area {
+            width: 100%; height: 40%; background: rgba(0,0,0,0.8);
+            border-top: 2px solid #fff; display: flex; flex-direction: column; align-items: center; padding: 10px;
+        }
+        .queue-display {
+            height: 40px; width: 90%; border: 1px dashed #555; margin-bottom: 10px;
+            display: flex; align-items: center; justify-content: center; gap: 10px; color: #00eaff; font-size: 0.8rem;
+        }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; width: 95%; }
+        .action-btn {
+            background: #222; border: 1px solid #666; color: white; padding: 15px 0;
+            border-radius: 5px; font-size: 0.8rem; text-transform: uppercase; box-shadow: 0 4px 0 #000;
+        }
+        .action-btn:active { transform: translateY(4px); box-shadow: 0 0 0 #000; }
+        .btn-maju { background: #2e7d32; }
+        .btn-mundur { background: #5d4037; }
+        .btn-attack { background: #c62828; }
+        .btn-tangkis { background: #1565c0; }
+        .timer-overlay {
+            position: absolute; font-size: 5rem; font-weight: bold; color: white;
+            text-shadow: 0 0 20px black; z-index: 100; pointer-events: none; display: none;
         }
 
-        .left-controls {
-            left: 20px;
+        /* WAITING OVERLAY */
+        #waiting-overlay {
+            position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85);
+            z-index: 90; display: flex; align-items: center; justify-content: center; color: white;
+            flex-direction: column; text-align: center;
         }
 
-        .right-controls {
-            right: 20px;
-        }
-
-        .btn {
-            width: 60px;
-            height: 60px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 50%;
-            border: 2px solid #333;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            font-size: 24px;
-            color: #333;
-        }
-
-        .btn:active {
-            background: rgba(0, 0, 0, 0.5);
-            color: white;
-        }
-
-        /* Notifikasi */
-        #statusMsg {
-            margin-bottom: 10px;
-            font-weight: bold;
-            color: red;
-        }
+        /* RESULT */
+        #result-screen { background: rgba(0,0,0,0.9); z-index: 100; }
+        .res-text { font-size: 3rem; font-family: 'Shojumaru'; margin-bottom: 20px;}
+        .win { color: #00eaff; }
+        .lose { color: #ff0055; }
     </style>
 </head>
 <body>
 
-    <div id="lobby">
-        <div class="lobby-box">
-            <h2>2D Platformer Multiplayer</h2>
-            <p id="statusMsg">Siap terhubung...</p>
-            
-            <div id="createSection">
-                <button onclick="createRoom()">Create Room</button>
-            </div>
-            
-            <div style="margin: 15px 0; font-weight: bold;">OR</div>
-            
-            <div id="joinSection">
-                <input type="number" id="roomInput" placeholder="Masukkan 6 Digit Kode" maxlength="6">
-                <button onclick="joinRoom()">Join Room</button>
-            </div>
+    <div style="display:none;">
+        <img id="preload-1" src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sidle.png">
+        <img id="preload-2" src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Spark.png">
+    </div>
 
-            <div id="roomInfo" style="display:none; margin-top:15px;">
-                <p>Kode Room:</p>
-                <h1 id="displayCode" style="letter-spacing: 5px; font-size: 32px;"></h1>
-                <p>Menunggu Player 2...</p>
-            </div>
+    <div id="lobby" class="screen">
+        <h1>SAMURAI PREDICT<br><span style="font-size:1rem; font-family:'Roboto'; color:white;">ONLINE PVP</span></h1>
+        
+        <div id="lobby-menu">
+            <button class="btn-main" onclick="setupHost()">CREATE ROOM</button>
+            <button class="btn-main" onclick="showJoin()">JOIN ROOM</button>
+        </div>
+
+        <div id="create-view" class="hidden" style="text-align:center;">
+            <p>Bagikan Kode ke Lawan:</p>
+            <h2 id="room-code-display" style="font-size: 3rem; color: #00eaff;">----</h2>
+            <p class="status-msg" id="host-status">Menunggu lawan...</p>
+            <button class="btn-main" onclick="location.reload()">BATAL</button>
+        </div>
+
+        <div id="join-view" class="hidden" style="text-align:center;">
+            <p>Masukkan Kode Lawan:</p>
+            <input type="number" id="join-code" placeholder="0000" oninput="if(this.value.length>4) this.value=this.value.slice(0,4)">
+            <br>
+            <button class="btn-main" onclick="joinGame()">SAMBUNGKAN</button>
+            <br>
+            <button class="btn-main" style="background:transparent; border:none; font-size:0.8rem;" onclick="location.reload()">BATAL</button>
+            <p class="status-msg" id="join-status"></p>
         </div>
     </div>
 
-    <canvas id="gameCanvas"></canvas>
-
-    <div id="gameUI">
-        <div id="hpContainer"><div id="hpBar"></div></div>
-
-        <div class="control-area left-controls">
-            <div class="btn" id="btnLeft">←</div>
-            <div class="btn" id="btnRight">→</div>
+    <div id="arena" class="screen hidden">
+        <div class="hud-top">
+            <div class="player-stats">
+                <div class="label">YOU (Owner)</div>
+                <div class="bar-container"><div class="hp-bar my-hp" id="my-hp-bar" style="width: 100%;"></div></div>
+                <div class="kat-bar" id="my-kat-bar" style="width: 100%;"></div>
+            </div>
+            <div class="player-stats" style="align-items: flex-end;">
+                <div class="label">ENEMY</div>
+                <div class="bar-container"><div class="hp-bar enemy-hp" id="enemy-hp-bar" style="width: 100%;"></div></div>
+                <div class="kat-bar" id="enemy-kat-bar" style="width: 100%;"></div>
+            </div>
         </div>
 
-        <div class="control-area right-controls">
-            <div class="btn" id="btnDash" style="background:rgba(255, 165, 0, 0.3)">⚡</div>
-            <div class="btn" id="btnJump">↑</div>
+        <div class="timer-overlay" id="timer-display">3</div>
+        
+        <div id="waiting-overlay" class="hidden">
+            <h2>MENUNGGU LAWAN...</h2>
+            <p>Kamu sudah siap. Menunggu musuh memilih gerakan.</p>
         </div>
+
+        <div class="battlefield" id="battlefield">
+            <div class="grid-layer">
+                <div class="grid-cell">1</div>
+                <div class="grid-cell">2</div>
+                <div class="grid-cell">3</div>
+                <div class="grid-cell">4</div>
+                <div class="grid-cell">5</div>
+            </div>
+
+            <div id="fx-layer">
+                <img id="spark-fx" class="spark" src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Spark.png">
+            </div>
+
+            <div id="my-char" class="character" style="left: 20%;">
+                <img src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sidle.png" class="char-img" id="my-img">
+            </div>
+            <div id="enemy-char" class="character" style="left: 60%;">
+                <img src="https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sidle.png" class="char-img" id="enemy-img">
+            </div>
+        </div>
+
+        <div class="controls-area" id="controls-area">
+            <div style="color:white; margin-bottom:5px;">PILIH 3 GERAKAN</div>
+            <div class="queue-display" id="move-queue"></div>
+            <div class="btn-grid" id="input-buttons">
+                <button class="action-btn btn-mundur" onclick="addMove('mundur')">Mundur</button>
+                <button class="action-btn btn-attack" onclick="addMove('attack')">Attack</button>
+                <button class="action-btn btn-tangkis" onclick="addMove('tangkis')">Tangkis</button>
+                <button class="action-btn btn-maju" onclick="addMove('maju')">Maju</button>
+            </div>
+            <button id="ready-btn" class="btn-main" style="width:90%; padding:10px; margin-top:10px; background:#00eaff; color:#000;" onclick="sendMoves()">READY</button>
+        </div>
+    </div>
+
+    <div id="result-screen" class="screen hidden">
+        <h1 id="result-title" class="res-text"></h1>
+        <button class="btn-main" onclick="location.reload()">MAIN LAGI</button>
     </div>
 
     <script>
-        // --- KONFIGURASI ASET ---
+        /* ================= CONFIGURATION & ASSETS ================= */
         const ASSETS = {
-            idle: [
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0001_0.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0002_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0003_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0004_9.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0005_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0006_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0007_9.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0008_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0009_9.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0010_9.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0011_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0012_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0013_9.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0014_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0015_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0016_9.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0017_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0018_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0019_9.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Kidle/0020_8.png"
-            ],
-            walk: [
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0001_0.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0002_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0003_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0004_9.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0005_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0006_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0007_9.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0008_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0009_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0010_9.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/walk/0011_8.png"
-            ],
-            jump: [
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Jump/0001_0.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Jump/0002_8.png",
-                "https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Karakter/Jump/0003_8.png"
-            ]
+            idle: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sidle.png',
+            maju: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Smaju.png',
+            mundur: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Smundur.png',
+            attack: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sattack.png',
+            tangkis: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Stangkis.png'
         };
 
-        // Preload Images
-        const loadedImages = { idle: [], walk: [], jump: [] };
-        function preloadImages() {
-            for (let key in ASSETS) {
-                ASSETS[key].forEach(url => {
-                    const img = new Image();
-                    img.src = url;
-                    loadedImages[key].push(img);
-                });
-            }
-        }
-        preloadImages();
+        // PeerJS ID Prefix to ensure uniqueness
+        const APP_ID_PREFIX = "samurai-predict-game-v1-"; 
 
-        // --- GAME ENGINE & LOGIC ---
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+        let peer = null;
+        let conn = null;
+        let myRole = null; // 'host' or 'joiner'
+
+        // Game State
+        // Grid logic: 0, 1, 2, 3, 4 (Visual 1-5)
+        // Host starts at 1 (Grid 2), Joiner starts at 3 (Grid 4)
+        let gameState = {
+            host: { hp: 100, katana: 100, grid: 1 }, 
+            joiner: { hp: 100, katana: 100, grid: 3 },
+            myMoves: [],
+            enemyMoves: [], // Will be filled when data received
+            roundActive: false
+        };
+
+        /* ================= NETWORKING (PEERJS) ================= */
         
-        // Resize Canvas
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        window.addEventListener('resize', resize);
-        resize();
+        // 1. HOST FUNCTION
+        function setupHost() {
+            document.getElementById('lobby-menu').classList.add('hidden');
+            document.getElementById('create-view').classList.remove('hidden');
 
-        // Constants
-        const GRAVITY = 0.8;
-        const FLOOR_Y = window.innerHeight - 150; // Lantai invisible
-        const SPEED = 5;
-        const JUMP_FORCE = -15;
-        const DASH_FORCE = 15;
-        const DASH_DURATION = 1000; // 1 detik (ms)
+            const roomCode = Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('room-code-display').innerText = roomCode;
 
-        // Inputs
-        const keys = { left: false, right: false, jump: false, dash: false };
-
-        // Helper untuk UI Touch
-        function setupTouch(id, key) {
-            const el = document.getElementById(id);
-            el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
-            el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
-            el.addEventListener('mousedown', (e) => { keys[key] = true; });
-            el.addEventListener('mouseup', (e) => { keys[key] = false; });
-        }
-        setupTouch('btnLeft', 'left');
-        setupTouch('btnRight', 'right');
-        setupTouch('btnJump', 'jump');
-        setupTouch('btnDash', 'dash');
-
-        // Class Player
-        class Player {
-            constructor(isLocal = true, x = 100) {
-                this.isLocal = isLocal;
-                this.x = x;
-                this.y = FLOOR_Y;
-                this.vx = 0;
-                this.vy = 0;
-                this.width = 100; // Sesuaikan ukuran sprite
-                this.height = 100;
-                this.facingRight = true;
-                
-                this.state = 'idle'; // idle, walk, jump
-                this.frameIndex = 0;
-                this.frameTimer = 0;
-                this.animSpeed = 5; // Semakin kecil semakin cepat
-
-                // Dash Mechanics
-                this.isDashing = false;
-                this.dashEndTime = 0;
-                this.ghosts = []; // Array untuk after image
-            }
-
-            update() {
-                // Update State & Physics (Hanya Local Player yang menghitung fisik sendiri)
-                if (this.isLocal) {
-                    this.handleInput();
-                    this.physics();
-                } else {
-                    // Remote player positions are interpolated/set via network
-                    this.animate(); // Tetap jalankan animasi
-                }
-
-                // Update Ghosts (After Image)
-                if (Date.now() < this.dashEndTime) {
-                    // Tambah ghost setiap beberapa frame
-                    if (this.frameTimer % 3 === 0) {
-                        this.ghosts.push({
-                            x: this.x,
-                            y: this.y,
-                            alpha: 0.8,
-                            img: this.getCurrentSprite(),
-                            facingRight: this.facingRight
-                        });
-                    }
-                }
-                
-                // Kurangi opacity ghost
-                for (let i = this.ghosts.length - 1; i >= 0; i--) {
-                    this.ghosts[i].alpha -= 0.05;
-                    if (this.ghosts[i].alpha <= 0) this.ghosts.splice(i, 1);
-                }
-            }
-
-            handleInput() {
-                // Movement
-                if (keys.left) {
-                    this.vx = -SPEED;
-                    this.facingRight = false;
-                    if (!this.isDashing) this.state = 'walk';
-                } else if (keys.right) {
-                    this.vx = SPEED;
-                    this.facingRight = true;
-                    if (!this.isDashing) this.state = 'walk';
-                } else {
-                    this.vx = 0;
-                    if (!this.isDashing && this.y >= FLOOR_Y) this.state = 'idle';
-                }
-
-                // Jump
-                if (keys.jump && this.y >= FLOOR_Y) {
-                    this.vy = JUMP_FORCE;
-                    this.state = 'jump';
-                }
-
-                // Dash
-                if (keys.dash && Date.now() > this.dashEndTime) {
-                    this.isDashing = true;
-                    this.dashEndTime = Date.now() + DASH_DURATION;
-                    // Dash boost
-                    let dashDir = this.facingRight ? 1 : -1;
-                    if (keys.left) dashDir = -1;
-                    if (keys.right) dashDir = 1;
-                    
-                    this.vx = dashDir * DASH_FORCE;
-                    this.vy = 0; // Tahan gravity sedikit saat dash start (opsional)
-                }
-
-                // Jika masa dash habis tapi efek masih jalan (1 detik)
-                if (Date.now() > this.dashEndTime - DASH_DURATION + 200) {
-                     this.isDashing = false; // Stop movement lock setelah 0.2s, tapi efek visual lanjut
-                }
-            }
-
-            physics() {
-                this.x += this.vx;
-                this.y += this.vy;
-
-                // Gravity
-                if (this.y < FLOOR_Y) {
-                    this.vy += GRAVITY;
-                    if(!this.isDashing) this.state = 'jump';
-                } else {
-                    this.y = FLOOR_Y;
-                    this.vy = 0;
-                    if (this.vx === 0) this.state = 'idle';
-                }
-
-                // Animasi Frame Counter
-                this.animate();
-
-                // Batas layar
-                if (this.x < 0) this.x = 0;
-                if (this.x > canvas.width - this.width) this.x = canvas.width - this.width;
-            }
-
-            animate() {
-                this.frameTimer++;
-                if (this.frameTimer >= this.animSpeed) {
-                    this.frameTimer = 0;
-                    this.frameIndex++;
-                }
-            }
-
-            getCurrentSprite() {
-                // Pilih array gambar berdasarkan state
-                let sprites = loadedImages.idle;
-                if (this.state === 'walk') sprites = loadedImages.walk;
-                if (this.state === 'jump') sprites = loadedImages.jump;
-
-                // Loop frame
-                let idx = this.frameIndex % sprites.length;
-                return sprites[idx];
-            }
-
-            draw(ctx) {
-                // 1. Gambar Ghosts (After Image)
-                this.ghosts.forEach(g => {
-                    ctx.save();
-                    ctx.globalAlpha = g.alpha;
-                    ctx.translate(g.x + this.width / 2, g.y + this.height / 2);
-                    if (!g.facingRight) ctx.scale(-1, 1);
-                    ctx.drawImage(g.img, -this.width / 2, -this.height / 2, this.width, this.height);
-                    ctx.restore();
-                });
-
-                // 2. Gambar Karakter Utama
-                let img = this.getCurrentSprite();
-                if (!img) return;
-
-                ctx.save();
-                ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
-                if (!this.facingRight) ctx.scale(-1, 1); // Flip horizontal
-                ctx.drawImage(img, -this.width / 2, -this.height / 2, this.width, this.height);
-                ctx.restore();
-            }
-
-            // Untuk multiplayer data
-            getData() {
-                return {
-                    x: this.x,
-                    y: this.y,
-                    state: this.state,
-                    facingRight: this.facingRight,
-                    dashActive: (Date.now() < this.dashEndTime)
-                };
-            }
-
-            setData(data) {
-                this.x = data.x;
-                this.y = data.y;
-                this.state = data.state;
-                this.facingRight = data.facingRight;
-                if (data.dashActive) {
-                    this.dashEndTime = Date.now() + 500; // Sync visual dash
-                }
-            }
-        }
-
-        // --- MULTIPLAYER LOGIC (PEERJS) ---
-        let peer;
-        let conn;
-        let isHost = false;
-        
-        const localPlayer = new Player(true, 50);
-        const remotePlayer = new Player(false, 200);
-        let gameActive = false;
-
-        function initPeer() {
-            peer = new Peer(null, {
-                debug: 2
-            });
+            // Initialize Peer as Host
+            peer = new Peer(APP_ID_PREFIX + roomCode);
 
             peer.on('open', (id) => {
-                console.log('My peer ID is: ' + id);
+                document.getElementById('host-status').innerText = "Room dibuat. Menunggu lawan join...";
+                myRole = 'host';
             });
 
             peer.on('connection', (c) => {
-                // Host menerima koneksi
                 conn = c;
-                setupConnection();
+                setupConnectionHandlers();
+                document.getElementById('host-status').innerText = "Lawan terhubung! Memulai game...";
+                setTimeout(enterArena, 1500);
             });
 
             peer.on('error', (err) => {
-                alert("Error Koneksi: " + err);
+                alert("Gagal membuat room. ID mungkin terpakai. Coba lagi.");
+                location.reload();
             });
         }
 
-        function createRoom() {
-            // Generate 6 digit code
-            const code = Math.floor(100000 + Math.random() * 900000);
-            const roomId = "game-platformer-" + code;
+        // 2. JOIN FUNCTION
+        function showJoin() {
+            document.getElementById('lobby-menu').classList.add('hidden');
+            document.getElementById('join-view').classList.remove('hidden');
+        }
+
+        function joinGame() {
+            const code = document.getElementById('join-code').value;
+            if (code.length !== 4) return alert("Masukkan 4 digit kode");
+
+            document.getElementById('join-status').innerText = "Menghubungkan...";
             
-            peer = new Peer(roomId);
+            // Create temporary peer to connect
+            peer = new Peer(); 
 
             peer.on('open', (id) => {
-                document.getElementById('createSection').style.display = 'none';
-                document.getElementById('joinSection').style.display = 'none';
-                document.getElementById('roomInfo').style.display = 'block';
-                document.getElementById('displayCode').innerText = code;
-                document.getElementById('statusMsg').innerText = "Menunggu lawan...";
-                isHost = true;
-            });
+                conn = peer.connect(APP_ID_PREFIX + code);
+                
+                conn.on('open', () => {
+                    document.getElementById('join-status').innerText = "Terhubung!";
+                    myRole = 'joiner';
+                    setupConnectionHandlers();
+                    setTimeout(enterArena, 1000);
+                });
 
-            peer.on('connection', (c) => {
-                conn = c;
-                setupConnection();
+                conn.on('error', (err) => {
+                    alert("Room tidak ditemukan atau penuh.");
+                });
             });
         }
 
-        function joinRoom() {
-            const code = document.getElementById('roomInput').value;
-            if (code.length !== 6) {
-                alert("Masukkan 6 digit kode!");
+        // 3. DATA HANDLER
+        function setupConnectionHandlers() {
+            conn.on('data', (data) => {
+                handleData(data);
+            });
+            conn.on('close', () => {
+                alert("Lawan terputus!");
+                location.reload();
+            });
+        }
+
+        function handleData(data) {
+            if (data.type === 'MOVES') {
+                gameState.enemyMoves = data.moves;
+                checkRoundStart();
+            }
+        }
+
+        /* ================= GAMEPLAY LOGIC ================= */
+
+        function enterArena() {
+            document.getElementById('lobby').classList.add('hidden');
+            document.getElementById('arena').classList.remove('hidden');
+            updateUI();
+        }
+
+        function addMove(type) {
+            if (gameState.myMoves.length < 3 && !gameState.roundActive) {
+                gameState.myMoves.push(type);
+                renderQueue();
+            }
+        }
+
+        function renderQueue() {
+            document.getElementById('move-queue').innerHTML = gameState.myMoves
+                .map((m, i) => `<span>${i+1}.${m}</span>`).join(' > ');
+        }
+
+        function sendMoves() {
+            if (gameState.myMoves.length !== 3) {
+                alert("Pilih 3 gerakan!");
                 return;
             }
-            
-            const roomId = "game-platformer-" + code;
-            peer = new Peer(); // Client pake ID random
 
-            peer.on('open', (id) => {
-                conn = peer.connect(roomId);
-                setupConnection();
-            });
-            
-            peer.on('error', (err) => {
-                alert("Room tidak ditemukan!");
-            });
+            // Lock UI
+            document.getElementById('input-buttons').style.pointerEvents = 'none';
+            document.getElementById('ready-btn').style.display = 'none';
+            document.getElementById('waiting-overlay').classList.remove('hidden');
+
+            // Send to opponent
+            if (conn && conn.open) {
+                conn.send({ type: 'MOVES', moves: gameState.myMoves });
+            }
+
+            checkRoundStart();
         }
 
-        function setupConnection() {
-            conn.on('open', () => {
-                console.log("Connected!");
-                document.getElementById('lobby').style.display = 'none';
-                document.getElementById('gameUI').style.display = 'block';
-                gameActive = true;
-                startGame();
-            });
-
-            conn.on('data', (data) => {
-                // Terima data posisi lawan
-                remotePlayer.setData(data);
-            });
+        function checkRoundStart() {
+            // Check if WE are ready AND ENEMY moves have arrived
+            if (gameState.myMoves.length === 3 && gameState.enemyMoves.length === 3) {
+                document.getElementById('waiting-overlay').classList.add('hidden');
+                startCombatSequence();
+            }
         }
 
-        // --- GAME LOOP ---
-        function startGame() {
-            function loop() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+        function startCombatSequence() {
+            gameState.roundActive = true;
+            
+            // Countdown Timer
+            let count = 3;
+            const timerDiv = document.getElementById('timer-display');
+            timerDiv.style.display = 'block';
+            timerDiv.innerText = count;
 
-                // Background & Floor (Putih)
-                ctx.fillStyle = "white";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const interval = setInterval(() => {
+                count--;
+                if (count <= 0) {
+                    clearInterval(interval);
+                    timerDiv.style.display = 'none';
+                    executeMoves();
+                } else {
+                    timerDiv.innerText = count;
+                }
+            }, 1000);
+        }
 
-                // Local Player Logic
-                localPlayer.update();
-                localPlayer.draw(ctx);
+        async function executeMoves() {
+            // Determine who is P1 (Host) moves vs P2 (Joiner) moves logic
+            // But we have myMoves and enemyMoves. 
+            // We need to know who is 'host' character data to update global state correctly.
+            
+            let hostMoves = myRole === 'host' ? gameState.myMoves : gameState.enemyMoves;
+            let joinerMoves = myRole === 'host' ? gameState.enemyMoves : gameState.myMoves;
 
-                // Remote Player Logic
-                remotePlayer.update(); // Hanya update animasi/ghost, bukan fisik
-                remotePlayer.draw(ctx);
+            for (let i = 0; i < 3; i++) {
+                if (gameState.host.hp <= 0 || gameState.joiner.hp <= 0) break;
+                
+                // Execute logic based on Host/Joiner moves
+                await playRound(hostMoves[i], joinerMoves[i]);
+            }
 
-                // Kirim data ke lawan
-                if (gameActive && conn && conn.open) {
-                    conn.send(localPlayer.getData());
+            checkGameOver();
+
+            // Reset Round
+            if (gameState.host.hp > 0 && gameState.joiner.hp > 0) {
+                gameState.myMoves = [];
+                gameState.enemyMoves = [];
+                gameState.roundActive = false;
+                
+                renderQueue();
+                
+                // UI Reset
+                document.getElementById('input-buttons').style.pointerEvents = 'auto';
+                document.getElementById('ready-btn').style.display = 'block';
+                setAnim('my', 'idle');
+                setAnim('enemy', 'idle');
+            }
+        }
+
+        /* ================= CORE BATTLE CALCULATION ================= */
+        // Note: Logic is calculated on both devices simultaneously.
+        // Since it's deterministic (no RNG), they will stay in sync.
+        
+        function playRound(hostMove, joinerMove) {
+            return new Promise(resolve => {
+                // 1. Animation Setting
+                // If I am Host: My Anim = hostMove, Enemy Anim = joinerMove
+                // If I am Joiner: My Anim = joinerMove, Enemy Anim = hostMove
+                if (myRole === 'host') {
+                    setAnim('my', hostMove);
+                    setAnim('enemy', joinerMove);
+                } else {
+                    setAnim('my', joinerMove);
+                    setAnim('enemy', hostMove);
                 }
 
-                requestAnimationFrame(loop);
-            }
-            loop();
+                // 2. Logic Calculation (Updating Global State: gameState.host & gameState.joiner)
+                // MOVEMENT
+                if (hostMove === 'maju' && gameState.host.grid < 4) gameState.host.grid++;
+                if (hostMove === 'mundur' && gameState.host.grid > 0) gameState.host.grid--;
+                
+                if (joinerMove === 'maju' && gameState.joiner.grid > 0) gameState.joiner.grid--; // Joiner moves Left (visually to Host)
+                if (joinerMove === 'mundur' && gameState.joiner.grid < 4) gameState.joiner.grid++;
+
+                updateUI(); // Move characters
+
+                // INTERACTION
+                let spark = false;
+                let hitHost = false;
+                let hitJoiner = false;
+
+                // Attack vs Attack
+                if (hostMove === 'attack' && joinerMove === 'attack') {
+                    gameState.host.hp -= 10; gameState.host.katana -= 10;
+                    gameState.joiner.hp -= 10; gameState.joiner.katana -= 10;
+                    hitHost = true; hitJoiner = true;
+                }
+                // Host Attacking
+                else if (hostMove === 'attack') {
+                    if (joinerMove === 'maju' || joinerMove === 'mundur') {
+                        gameState.joiner.hp -= 20;
+                        hitJoiner = true;
+                    } else if (joinerMove === 'tangkis') {
+                        gameState.host.katana -= 20;
+                        spark = true;
+                    }
+                }
+                // Joiner Attacking
+                else if (joinerMove === 'attack') {
+                    if (hostMove === 'maju' || hostMove === 'mundur') {
+                        gameState.host.hp -= 20;
+                        hitHost = true;
+                    } else if (hostMove === 'tangkis') {
+                        gameState.joiner.katana -= 20;
+                        spark = true;
+                    }
+                }
+
+                // 3. FX
+                if (spark) showSpark();
+                if (hitHost || hitJoiner) shakeScreen();
+
+                updateUI();
+
+                setTimeout(resolve, 1500); // Wait for anim
+            });
         }
 
-        // Init tombol
-        // initPeer(); // Pindah ke tombol
+        /* ================= VISUALS & HELPERS ================= */
+
+        function updateUI() {
+            // HP & Katana Bars
+            // Determine which bar is mine based on role
+            const myData = myRole === 'host' ? gameState.host : gameState.joiner;
+            const enemyData = myRole === 'host' ? gameState.joiner : gameState.host;
+
+            document.getElementById('my-hp-bar').style.width = Math.max(0, myData.hp) + '%';
+            document.getElementById('my-kat-bar').style.width = Math.max(0, myData.katana) + '%';
+            
+            document.getElementById('enemy-hp-bar').style.width = Math.max(0, enemyData.hp) + '%';
+            document.getElementById('enemy-kat-bar').style.width = Math.max(0, enemyData.katana) + '%';
+
+            // POSITIONING LOGIC
+            // The request: "Owner always on Left. Enemy on Right."
+            // Visual Grid is 1-5 (CSS Left %).
+            // Grid Data is 0-4.
+            
+            let myVisualGrid, enemyVisualGrid;
+
+            if (myRole === 'host') {
+                // As Host: I see Grid 0 on Left, Grid 4 on Right.
+                // My Pos = grid * 20
+                // Enemy Pos = grid * 20
+                myVisualGrid = gameState.host.grid;
+                enemyVisualGrid = gameState.joiner.grid;
+            } else {
+                // As Joiner: I see the world FLIPPED.
+                // My (Joiner) Real Grid 4 is visually Left (0).
+                // Formula: VisualPos = 4 - RealGrid
+                myVisualGrid = 4 - gameState.joiner.grid;
+                enemyVisualGrid = 4 - gameState.host.grid;
+            }
+
+            document.getElementById('my-char').style.left = (myVisualGrid * 20) + '%';
+            document.getElementById('enemy-char').style.left = (enemyVisualGrid * 20) + '%';
+        }
+
+        function setAnim(who, type) {
+            // who = 'my' or 'enemy'
+            document.getElementById(`${who}-img`).src = ASSETS[type];
+        }
+
+        function showSpark() {
+            const s = document.getElementById('spark-fx');
+            s.style.opacity = '0.8';
+            setTimeout(() => s.style.opacity = '0', 300);
+        }
+
+        function shakeScreen() {
+            const bf = document.getElementById('battlefield');
+            bf.classList.add('shake');
+            setTimeout(() => bf.classList.remove('shake'), 500);
+        }
+
+        function checkGameOver() {
+            if (gameState.host.hp <= 0 || gameState.joiner.hp <= 0) {
+                const resScreen = document.getElementById('result-screen');
+                const resTitle = document.getElementById('result-title');
+                resScreen.classList.remove('hidden');
+
+                // Check winner relative to ME
+                let myHp = myRole === 'host' ? gameState.host.hp : gameState.joiner.hp;
+                let enemyHp = myRole === 'host' ? gameState.joiner.hp : gameState.host.hp;
+
+                if (myHp <= 0 && enemyHp <= 0) {
+                    resTitle.innerText = "SERI";
+                    resTitle.className = "res-text";
+                } else if (myHp <= 0) {
+                    resTitle.innerText = "KAMU KALAH";
+                    resTitle.className = "res-text lose";
+                } else {
+                    resTitle.innerText = "KAMU MENANG";
+                    resTitle.className = "res-text win";
+                }
+            }
+        }
     </script>
 </body>
 </html>
