@@ -2,321 +2,358 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Samurai Predict - Multiplayer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Samurai Predict</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Shojumaru&family=Roboto:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Shojumaru&family=Roboto:wght@700&display=swap');
 
-        :root {
-            --bg-url: url('https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sbg.jpg');
-            --glow-owner: 0 0 15px 3px rgba(0, 191, 255, 0.9);
-            --glow-enemy: 0 0 15px 3px rgba(255, 50, 50, 0.9);
-            --bar-height: 16px; /* Bar lebih tipis */
-        }
-
-        * { box-sizing: border-box; }
-
-        body {
-            margin: 0; padding: 0;
-            overflow: hidden;
-            background: black;
-            font-family: 'Roboto', sans-serif;
-            color: white;
+        /* --- 1. RESET & APP SHELL FOUNDATION --- */
+        * {
+            box-sizing: border-box;
             user-select: none;
-            -webkit-user-select: none; /* Cegah zoom/select di mobile */
-            touch-action: manipulation;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation; /* Mencegah zoom double tap */
         }
 
-        #game-container {
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            overflow: hidden; /* DILARANG SCROLL */
+            background-color: #000;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        /* Container utama yang membatasi rasio layar seperti HP */
+        #app-container {
             position: relative;
-            width: 100vw; height: 100vh;
-            background-image: var(--bg-url);
+            width: 100%; height: 100%;
+            max-width: 500px; /* Batas lebar agar tidak gepeng di Tablet/PC */
+            margin: 0 auto; /* Tengah layar */
+            background: #111;
+            background-image: url('https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sbg.jpg');
             background-size: cover;
-            background-position: center;
+            background-position: center bottom;
             display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            flex-direction: column; /* Stack Vertikal: HUD -> Arena -> Controls */
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
-        /* --- LOBBY SCREEN --- */
-        #lobby-screen {
+        /* --- 2. LOADING SCREEN --- */
+        #loading-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9);
+            background: #000;
+            z-index: 9999;
             display: flex; flex-direction: column;
             justify-content: center; align-items: center;
+            color: #ffcc00;
+        }
+        .loader-bar {
+            width: 200px; height: 10px; background: #333;
+            margin-top: 10px; border-radius: 5px; overflow: hidden;
+        }
+        .loader-fill { width: 0%; height: 100%; background: #ffcc00; transition: width 0.2s; }
+
+        /* --- 3. LOBBY OVERLAY --- */
+        #lobby-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
             z-index: 100;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
         }
-        h1 { font-family: 'Shojumaru', cursive; color: #ffcc00; font-size: 1.8rem; text-align: center; margin-bottom: 30px; }
-        .btn {
-            background: #8b0000; color: white; border: 2px solid #ffcc00;
-            padding: 12px 30px; margin: 10px; font-size: 1rem; border-radius: 5px;
-            font-family: 'Shojumaru', cursive; cursor: pointer;
-        }
-        input { padding: 10px; font-size: 1.2rem; text-align: center; width: 120px; border-radius: 5px; border: none; }
-
-        /* --- HUD (HEADS UP DISPLAY) --- */
-        #hud-area {
-            width: 100%;
-            padding: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
-            z-index: 10;
-        }
-
-        .player-hud {
-            width: 45%; /* Flexible width */
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .hud-name {
-            font-size: 0.8rem; font-weight: bold; color: #ffcc00; text-shadow: 1px 1px black;
-            margin-bottom: 2px;
-        }
-
-        .bar-wrapper {
-            position: relative;
-            width: 100%;
-            height: var(--bar-height);
-            background: #222;
-            border: 1px solid #555;
-            border-radius: 3px;
-            overflow: hidden;
-        }
-
-        .bar-fill { height: 100%; transition: width 0.3s ease-out; }
-        .hp-fill { background: linear-gradient(90deg, #00b300, #00ff00); }
-        .kt-fill { background: linear-gradient(90deg, #0080ff, #00bfff); }
-
-        /* Teks di dalam bar (Overlay) */
-        .bar-text {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 10px; font-weight: bold; text-shadow: 1px 1px 2px black;
-            z-index: 2;
-        }
-
-        /* --- ARENA AREA --- */
-        #arena-container {
-            flex-grow: 1; /* Isi sisa ruang tengah */
-            position: relative;
-            width: 100%;
-            overflow: hidden;
-        }
-
-        #arena-grid {
-            position: absolute;
-            bottom: 20px; /* Jarak dari area tombol */
-            left: 5%; width: 90%; height: 180px;
-            display: flex; justify-content: space-between; align-items: flex-end;
-        }
+        .title-text { font-family: 'Shojumaru', cursive; color: #ffcc00; font-size: 2rem; margin-bottom: 2rem; text-shadow: 2px 2px #d32f2f; }
         
-        .grid-slot { width: 18%; height: 100%; position: relative; }
-
-        .character {
-            width: 100%; height: 100%;
-            background-size: contain; background-repeat: no-repeat;
-            background-position: bottom center;
-            position: absolute; bottom: 0; left: 0;
+        .game-btn {
+            background: linear-gradient(to bottom, #b71c1c, #8b0000);
+            border: 2px solid #ffcc00; color: white;
+            padding: 15px 30px; font-family: 'Shojumaru', cursive;
+            font-size: 1.1rem; border-radius: 8px; cursor: pointer;
+            margin: 5px; box-shadow: 0 4px 0 #550000;
             transition: transform 0.1s;
         }
-        .owner { filter: drop-shadow(var(--glow-owner)); }
-        .enemy { filter: drop-shadow(var(--glow-enemy)); transform: scaleX(-1); }
+        .game-btn:active { transform: translateY(4px); box-shadow: 0 0 0; }
+        .input-code {
+            background: #222; border: 2px solid #555; color: white;
+            padding: 10px; font-size: 1.5rem; text-align: center;
+            letter-spacing: 5px; width: 150px; border-radius: 8px;
+            margin-bottom: 10px;
+        }
 
-        /* FX */
-        #fx-layer {
+        /* --- 4. GAMEPLAY UI (FLEXIBLE) --- */
+        
+        /* ZONE 1: HUD (Top) - Fixed Height */
+        #ui-top {
+            flex: 0 0 auto; /* Jangan menyusut */
+            padding: 10px;
+            width: 100%;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            display: flex; justify-content: space-between;
+        }
+
+        .player-stats { width: 48%; }
+        .stat-label { font-size: 10px; color: #aaa; margin-bottom: 2px; font-weight: bold; }
+        .bar-frame {
+            width: 100%; height: 18px; background: #222;
+            border: 1px solid #555; border-radius: 3px;
+            position: relative; overflow: hidden; margin-bottom: 4px;
+        }
+        .bar-value {
+            height: 100%; transition: width 0.3s ease-out;
+        }
+        .hp-val { background: linear-gradient(90deg, #4caf50, #8bc34a); }
+        .kt-val { background: linear-gradient(90deg, #2196f3, #03a9f4); }
+        .bar-text {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 50;
-            display: flex; justify-content: center; align-items: center;
-        }
-        .spark {
-            width: 150px; height: 150px;
-            background-image: url('https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Spark.png');
-            background-size: contain; background-repeat: no-repeat;
-            opacity: 0; transform: scale(0.5); transition: all 0.1s;
-        }
-        .spark.active { opacity: 0.9; transform: scale(1.2); }
-
-        /* --- CONTROLS AREA (FLEXIBLE) --- */
-        #controls-area {
-            width: 100%;
-            padding: 10px 10px 20px 10px; /* Padding bawah lebih besar untuk HP layar penuh */
-            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            z-index: 20;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; color: white; text-shadow: 1px 1px 1px black;
         }
 
-        #sequence-display {
-            font-size: 0.9rem; color: #ffff00; text-align: center; margin-bottom: 8px;
-            min-height: 1.2rem;
-        }
-
-        #buttons-row {
-            display: flex;
-            width: 100%;
-            justify-content: space-between;
-            gap: 8px; /* Jarak antar tombol */
-            max-width: 600px; /* Batas lebar di tablet */
-        }
-
-        .move-btn {
-            flex: 1; /* Flexible width: semua tombol berbagi ruang sama rata */
-            aspect-ratio: 1/1; /* Agar tombol tetap kotak proporsional */
-            max-height: 70px; /* Maksimal tinggi */
-            background: #222; border: 2px solid #555; border-radius: 8px;
-            color: white; font-size: 0.7rem; font-weight: bold;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: pointer; touch-action: manipulation;
+        /* ZONE 2: ARENA (Middle) - Takes remaining space */
+        #ui-arena {
+            flex: 1 1 auto; /* Mengisi sisa ruang */
             position: relative;
+            width: 100%;
+            /* Border debug dihapus nanti */
         }
         
-        .move-btn img { 
-            width: 50%; height: 50%; object-fit: contain; margin-bottom: 4px; 
-            pointer-events: none; 
-            /* Placeholder icon kalau gambar belum load */
-            background: rgba(255,255,255,0.1); border-radius: 50%;
-        }
-
-        .move-btn.selected { 
-            background: #0080ff; border-color: white; color: white; opacity: 0.6; 
-        }
-        .move-btn:active { transform: scale(0.95); background: #444; }
-
-        /* Icon teks sederhana karena tidak ada aset icon spesifik */
-        .icon-text { font-size: 1.2rem; margin-bottom: 2px; }
-
-        #game-message {
+        /* Pesan Game di tengah layar */
+        #message-area {
             position: absolute; top: 40%; width: 100%;
-            text-align: center; font-size: 1.5rem; color: white;
-            text-shadow: 0 0 10px black; pointer-events: none; z-index: 99;
-            font-family: 'Shojumaru', cursive; padding: 0 20px;
+            text-align: center; font-family: 'Shojumaru', cursive;
+            font-size: 2rem; color: #fff; text-shadow: 0 0 10px #000, 0 0 20px #ff0000;
+            z-index: 50; pointer-events: none;
         }
+
+        /* Grid tempat berdiri karakter */
+        #grid-container {
+            position: absolute; bottom: 0; 
+            left: 5%; width: 90%; height: 40%; /* Area aktif karakter di bagian bawah arena */
+            display: flex; align-items: flex-end; justify-content: space-between;
+        }
+        .grid-cell { width: 18%; height: 100%; position: relative; }
+
+        /* Karakter */
+        .char-sprite {
+            width: 140%; height: 140%; /* Agak besar biar jelas */
+            position: absolute; bottom: -10%; left: -20%;
+            background-size: contain; background-repeat: no-repeat; background-position: bottom center;
+            transition: filter 0.2s;
+        }
+        .owner-glow { filter: drop-shadow(0 0 10px cyan); }
+        .enemy-glow { filter: drop-shadow(0 0 10px red); transform: scaleX(-1); }
+
+        /* FX Layer */
+        .fx-spark {
+            position: absolute; width: 150px; height: 150px;
+            top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+            background-image: url('https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Spark.png');
+            background-size: contain; background-repeat: no-repeat;
+            transition: transform 0.1s; pointer-events: none; z-index: 60;
+        }
+        .fx-spark.pop { transform: translate(-50%, -50%) scale(1.5); }
+
+        /* ZONE 3: CONTROLS (Bottom) - Fixed Height */
+        #ui-controls {
+            flex: 0 0 auto;
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(to top, rgba(0,0,0,0.95), transparent);
+            display: flex; flex-direction: column; align-items: center;
+        }
+        
+        #sequence-bar {
+            height: 20px; margin-bottom: 5px; color: yellow; font-size: 12px;
+            text-align: center; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+
+        #btn-container {
+            display: flex; width: 100%; gap: 8px; justify-content: center;
+            height: 18vh; /* Menggunakan tinggi layar viewport (Responsive) */
+            max-height: 100px;
+        }
+
+        .action-btn {
+            flex: 1; /* Membagi rata 4 tombol */
+            background: #2b2b2b; border: 2px solid #555;
+            border-radius: 10px; color: white;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            font-size: 0.7rem; font-weight: bold;
+            cursor: pointer; position: relative;
+        }
+        .action-btn:active { background: #444; transform: scale(0.95); }
+        .action-btn.disabled { opacity: 0.3; pointer-events: none; filter: grayscale(1); }
+        .action-btn.picked { border-color: #00e5ff; background: #004d40; color: #00e5ff; }
+
+        .btn-icon { font-size: 1.5rem; margin-bottom: 5px; }
 
     </style>
 </head>
 <body>
 
-<div id="game-container">
+<div id="app-container">
     
-    <div id="lobby-screen">
-        <h1>SAMURAI PREDICT</h1>
-        <button class="btn" onclick="createRoom()">BUAT ROOM</button>
-        <div style="margin-top:20px; text-align: center;">
-            <input type="number" id="room-code-input" placeholder="KODE" maxlength="4">
-            <br>
-            <button class="btn" onclick="joinRoom()" style="margin-top: 10px;">GABUNG ROOM</button>
-        </div>
-        <p id="lobby-status" style="color: cyan; margin-top: 15px; font-size: 0.9rem;"></p>
+    <div id="loading-screen">
+        <h2 style="font-family: 'Shojumaru'; color: white;">SAMURAI PREDICT</h2>
+        <div style="font-size: 12px; color: #888;">MEMUAT ASET GAME...</div>
+        <div class="loader-bar"><div class="loader-fill" id="loader-progress"></div></div>
     </div>
 
-    <div id="game-ui" style="display: none; width: 100%; height: 100%; display: flex; flex-direction: column;">
+    <div id="lobby-screen" style="display: none;">
+        <div class="title-text">SAMURAI<br>PREDICT</div>
         
-        <div id="hud-area">
-            <div class="player-hud" id="hud-left">
-                <div class="hud-name" id="name-p1">KAMU</div>
-                <div class="bar-wrapper">
-                    <div class="bar-fill hp-fill" id="p1-hp-bar" style="width: 100%;"></div>
-                    <span class="bar-text" id="p1-hp-text">100 / 100</span>
-                </div>
-                <div class="bar-wrapper" style="margin-top: 3px;">
-                    <div class="bar-fill kt-fill" id="p1-kt-bar" style="width: 100%;"></div>
-                    <span class="bar-text" id="p1-kt-text">Pedang: 100%</span>
-                </div>
-            </div>
+        <button class="game-btn" onclick="createRoom()">BUAT ROOM</button>
+        
+        <div style="margin: 20px 0; border-top: 1px solid #555; width: 50%;"></div>
+        
+        <input type="number" id="room-code" class="input-code" placeholder="0000" oninput="if(this.value.length>4) this.value=this.value.slice(0,4)">
+        <button class="game-btn" onclick="joinRoom()" style="background: #333; border-color: #888;">GABUNG</button>
+        
+        <p id="lobby-status" style="margin-top: 20px; color: cyan; font-size: 14px; text-align: center; padding: 0 20px;"></p>
+    </div>
 
-            <div class="player-hud" id="hud-right" style="align-items: flex-end;">
-                <div class="hud-name" id="name-p2" style="color: #ff5555;">MUSUH</div>
-                <div class="bar-wrapper">
-                    <div class="bar-fill hp-fill" id="p2-hp-bar" style="width: 100%;"></div>
-                    <span class="bar-text" id="p2-hp-text">100 / 100</span>
-                </div>
-                <div class="bar-wrapper" style="margin-top: 3px;">
-                    <div class="bar-fill kt-fill" id="p2-kt-bar" style="width: 100%;"></div>
-                    <span class="bar-text" id="p2-kt-text">Pedang: 100%</span>
-                </div>
+    <div id="game-ui" style="display: none; width: 100%; height: 100%; flex-direction: column;">
+        
+        <div id="ui-top">
+            <div class="player-stats">
+                <div class="stat-label" id="p1-name">YOU</div>
+                <div class="bar-frame"><div class="bar-value hp-val" id="p1-hp" style="width: 100%"></div><span class="bar-text" id="p1-hp-txt">100</span></div>
+                <div class="bar-frame" style="height: 10px;"><div class="bar-value kt-val" id="p1-kt" style="width: 100%"></div></div>
+            </div>
+            <div class="player-stats" style="text-align: right;">
+                <div class="stat-label" id="p2-name" style="color: #ff5555">ENEMY</div>
+                <div class="bar-frame"><div class="bar-value hp-val" id="p2-hp" style="width: 100%"></div><span class="bar-text" id="p2-hp-txt">100</span></div>
+                <div class="bar-frame" style="height: 10px;"><div class="bar-value kt-val" id="p2-kt" style="width: 100%"></div></div>
             </div>
         </div>
 
-        <div id="arena-container">
-            <div id="fx-layer"><div class="spark" id="spark-fx"></div></div>
-            <div id="game-message"></div>
+        <div id="ui-arena">
+            <div id="message-area"></div>
             
-            <div id="arena-grid">
-                <div class="grid-slot" id="grid-1"></div>
-                <div class="grid-slot" id="grid-2"></div>
-                <div class="grid-slot" id="grid-3"></div>
-                <div class="grid-slot" id="grid-4"></div>
-                <div class="grid-slot" id="grid-5"></div>
+            <div id="grid-container">
+                <div class="grid-cell" id="g1"></div>
+                <div class="grid-cell" id="g2"></div>
+                <div class="grid-cell" id="g3"></div>
+                <div class="grid-cell" id="g4"></div>
+                <div class="grid-cell" id="g5"></div>
+            </div>
+            
+            <div class="fx-spark" id="spark-fx"></div>
+        </div>
+
+        <div id="ui-controls">
+            <div id="sequence-bar">PILIH KOMBINASI SERANGAN...</div>
+            <div id="btn-container">
+                <div class="action-btn" id="btn-maju" onclick="pickMove('maju')">
+                    <span class="btn-icon">⏩</span>MAJU
+                </div>
+                <div class="action-btn" id="btn-attack" onclick="pickMove('attack')">
+                    <span class="btn-icon">⚔️</span>ATTACK
+                </div>
+                <div class="action-btn" id="btn-tangkis" onclick="pickMove('tangkis')">
+                    <span class="btn-icon">🛡️</span>TANGKIS
+                </div>
+                <div class="action-btn" id="btn-mundur" onclick="pickMove('mundur')">
+                    <span class="btn-icon">⏪</span>MUNDUR
+                </div>
             </div>
         </div>
 
-        <div id="controls-area">
-            <div id="sequence-display">Urutan: <span id="move-seq-text" style="color:white;">...</span></div>
-            <div id="buttons-row">
-                <div class="move-btn" id="btn-maju" onclick="selectMove('maju')">
-                    <span class="icon-text">⏩</span>MAJU
-                </div>
-                <div class="move-btn" id="btn-attack" onclick="selectMove('attack')">
-                    <span class="icon-text">⚔️</span>ATTACK
-                </div>
-                <div class="move-btn" id="btn-tangkis" onclick="selectMove('tangkis')">
-                    <span class="icon-text">🛡️</span>TANGKIS
-                </div>
-                <div class="move-btn" id="btn-mundur" onclick="selectMove('mundur')">
-                    <span class="icon-text">⏪</span>MUNDUR
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
 <script>
-    /* --- CONFIG & ASSETS --- */
+    /* =========================================
+       1. ASSET PRELOADER SYSTEM
+       ========================================= */
     const ASSETS = {
+        bg: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sbg.jpg',
         idle: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sidle.png',
         maju: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Smaju.png',
         mundur: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Smundur.png',
         attack: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Sattack.png',
-        tangkis: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Stangkis.png'
+        tangkis: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Stangkis.png',
+        spark: 'https://raw.githubusercontent.com/viqihakbarrr-cyber/bub/main/Samu/Spark.png'
     };
 
-    /* --- GAME VARIABLES --- */
-    let peer, conn, isHost = false, myId = null;
-    let p1Stats = { hp: 100, katana: 100, pos: 2 }; 
-    let p2Stats = { hp: 100, katana: 100, pos: 4 }; 
-    let myMoves = [], enemyMoves = null, turnInProgress = false;
+    const imageCache = {};
 
-    // DOM Elements
-    const lobbyStatus = document.getElementById('lobby-status');
-    const msgEl = document.getElementById('game-message');
-    const sparkEl = document.getElementById('spark-fx');
+    function preloadAssets() {
+        const keys = Object.keys(ASSETS);
+        let loaded = 0;
+        const total = keys.length;
+        const progressEl = document.getElementById('loader-progress');
 
-    /* --- PEERJS CONNECTION --- */
+        if (total === 0) showLobby();
+
+        keys.forEach(key => {
+            const img = new Image();
+            img.src = ASSETS[key];
+            img.onload = () => {
+                loaded++;
+                const percent = (loaded / total) * 100;
+                progressEl.style.width = percent + '%';
+                imageCache[key] = img; // Simpan di cache browser
+                if (loaded === total) {
+                    setTimeout(showLobby, 500);
+                }
+            };
+            img.onerror = () => {
+                console.error("Gagal load: " + ASSETS[key]);
+                loaded++; // Tetap lanjut meski error
+                if (loaded === total) setTimeout(showLobby, 500);
+            };
+        });
+    }
+
+    function showLobby() {
+        document.getElementById('loading-screen').style.display = 'none';
+        document.getElementById('lobby-screen').style.display = 'flex';
+    }
+
+    // Jalankan Preloader saat halaman dibuka
+    window.onload = preloadAssets;
+
+    /* =========================================
+       2. GAME LOGIC & STATE
+       ========================================= */
+    let peer, conn, myId;
+    let isHost = false;
+    let myMoves = [];
+    let enemyMoves = null;
+    let isFighting = false;
+
+    // Data Stats
+    let p1 = { hp: 100, kt: 100, pos: 2 }; // Host
+    let p2 = { hp: 100, kt: 100, pos: 4 }; // Client
+
+    /* --- PEERJS MULTIPLAYER --- */
     function initPeer(id) {
-        peer = new Peer('samu-v2-' + id); // Prefix v2 untuk versi baru
+        // Prefix unik 'samu-v3' untuk menghindari tabrakan ID dengan user lain di server public
+        peer = new Peer('samu-v3-' + id);
 
         peer.on('open', (id) => {
             myId = id;
-            if(isHost) {
-                lobbyStatus.innerHTML = `Kode Room: <b style="font-size:1.5rem; color:yellow;">${id.split('-')[2]}</b><br>Menunggu lawan...`;
+            if (isHost) {
+                const code = id.split('-')[2];
+                document.getElementById('lobby-status').innerHTML = 
+                    `ROOM DIBUAT<br><b style="font-size:2rem; color:white;">${code}</b><br>Menunggu lawan...`;
             }
         });
 
         peer.on('connection', (c) => {
-            if (isHost && !conn) {
-                conn = c; setupConnection(); startGame();
+            if (isHost) {
+                conn = c;
+                setupConn();
             }
         });
 
         peer.on('error', (err) => {
-            lobbyStatus.innerText = "Error / Kode Terpakai. Coba lagi.";
+            document.getElementById('lobby-status').innerText = "Error: ID mungkin sudah dipakai atau koneksi buruk.";
         });
     }
 
@@ -327,216 +364,237 @@
     }
 
     function joinRoom() {
-        const code = document.getElementById('room-code-input').value;
-        if (code.length !== 4) return alert("Isi 4 digit kode");
+        const code = document.getElementById('room-code').value;
+        if (code.length !== 4) return alert("Masukkan 4 digit kode!");
+        
         isHost = false;
         const clientId = Math.floor(10000 + Math.random() * 90000);
-        peer = new Peer('samu-client-v2-' + clientId);
+        peer = new Peer('samu-client-v3-' + clientId);
+
         peer.on('open', () => {
-            conn = peer.connect('samu-v2-' + code);
-            setupConnection();
+            conn = peer.connect('samu-v3-' + code);
+            setupConn();
         });
-        peer.on('error', () => alert("Gagal konek. Cek kode."));
+
+        peer.on('error', () => alert("Gagal konek. Kode salah/room penuh."));
     }
 
-    function setupConnection() {
-        conn.on('open', () => {
-            if(!isHost) startGame();
-        });
+    function setupConn() {
+        document.getElementById('lobby-status').innerText = "TERHUBUNG! Memulai game...";
+        setTimeout(startGameUI, 1000);
+
         conn.on('data', (data) => {
             if (data.type === 'moves') {
                 enemyMoves = data.moves;
-                checkTurnReady();
+                checkReady();
             }
         });
     }
 
-    /* --- GAMEPLAY LOGIC --- */
-    function startGame() {
+    /* --- UI HANDLERS --- */
+    function startGameUI() {
         document.getElementById('lobby-screen').style.display = 'none';
-        document.getElementById('game-ui').style.removeProperty('display'); // Show Flex
+        document.getElementById('game-ui').style.display = 'flex'; // Gunakan flex agar layout responsive jalan
         
-        // Atur Nama HUD
-        if(isHost) {
-            document.getElementById('name-p1').innerText = "KAMU (OWNER)";
-            document.getElementById('name-p2').innerText = "LAWAN";
-        } else {
-            // Di layar Client, P1 (Kiri Visual) adalah Client (Dirinya), P2 (Kanan Visual) adalah Host (Musuh)
-            // Tapi data p1Stats tetap Host, p2Stats tetap Client. Rendering akan membalik ini.
-            document.getElementById('name-p1').innerText = "KAMU";
-            document.getElementById('name-p2').innerText = "LAWAN (OWNER)";
-        }
+        // Setup Nama
+        document.getElementById('p1-name').innerText = isHost ? "YOU (OWNER)" : "YOU";
+        document.getElementById('p2-name').innerText = isHost ? "ENEMY" : "ENEMY (OWNER)";
 
-        resetRoundUI();
-        renderCharacters();
+        renderChars();
         updateHUD();
     }
 
-    function selectMove(type) {
-        if (turnInProgress || myMoves.length >= 4 || myMoves.includes(type)) return;
+    function pickMove(move) {
+        if (isFighting || myMoves.length >= 4 || myMoves.includes(move)) return;
+
+        myMoves.push(move);
         
-        myMoves.push(type);
-        document.getElementById(`btn-${type}`).classList.add('selected');
-        document.getElementById('move-seq-text').innerText = myMoves.map(m => m.toUpperCase()).join(" > ");
+        // Update Visual Tombol
+        const btn = document.getElementById('btn-' + move);
+        btn.classList.add('picked', 'disabled');
+
+        // Update Text
+        const symbols = { maju: '⏩', mundur: '⏪', attack: '⚔️', tangkis: '🛡️' };
+        let seqText = myMoves.map(m => symbols[m]).join(' ');
+        document.getElementById('sequence-bar').innerText = seqText;
 
         if (myMoves.length === 4) {
             conn.send({ type: 'moves', moves: myMoves });
-            msgEl.innerText = "MENUNGGU LAWAN...";
-            checkTurnReady();
+            document.getElementById('message-area').innerText = "MENUNGGU LAWAN...";
+            checkReady();
         }
     }
 
-    function checkTurnReady() {
+    function checkReady() {
         if (myMoves.length === 4 && enemyMoves) {
-            msgEl.innerText = "FIGHT!";
-            turnInProgress = true;
-            setTimeout(processCombat, 1000);
+            document.getElementById('message-area').innerText = "FIGHT!";
+            isFighting = true;
+            setTimeout(combatLoop, 1500);
         }
     }
 
-    async function processCombat() {
-        msgEl.innerText = "";
-        
+    /* --- COMBAT ENGINE --- */
+    async function combatLoop() {
+        document.getElementById('message-area').innerText = "";
+
         for (let i = 0; i < 4; i++) {
-            let p1M = isHost ? myMoves[i] : enemyMoves[i];
-            let p2M = isHost ? enemyMoves[i] : myMoves[i];
+            // Tentukan langkah siapa vs siapa
+            let actP1 = isHost ? myMoves[i] : enemyMoves[i];
+            let actP2 = isHost ? enemyMoves[i] : myMoves[i];
 
-            updatePositionLogically(p1M, p2M);
-            
-            setAnim(true, p1M);
-            setAnim(false, p2M);
-            renderCharacters(); 
-            
-            await wait(400); // Waktu impact
+            // 1. Logic Movement
+            if(actP1 === 'maju' && p1.pos < 5) p1.pos++;
+            if(actP1 === 'mundur' && p1.pos > 1) p1.pos--;
+            if(actP2 === 'maju' && p2.pos > 1) p2.pos--;
+            if(actP2 === 'mundur' && p2.pos < 5) p2.pos++;
 
-            calculateDamage(p1M, p2M);
+            // 2. Render Move Animation
+            renderChars(actP1, actP2);
+            await sleep(400); // Waktu animasi gerak
+
+            // 3. Hitung Jarak & Damage
+            let dist = Math.abs(p1.pos - p2.pos);
+            let melee = dist <= 1; // Sebelahan atau numpuk
+            let spark = false;
+
+            if (melee) {
+                // Logic Tempur
+                if (actP1 === 'attack' && actP2 === 'attack') {
+                    p1.hp -= 10; p1.kt -= 10; p2.hp -= 10; p2.kt -= 10;
+                    spark = true;
+                } else if (actP1 === 'attack' && (actP2 === 'maju' || actP2 === 'mundur')) {
+                    p2.hp -= 20;
+                } else if (actP2 === 'attack' && (actP1 === 'maju' || actP1 === 'mundur')) {
+                    p1.hp -= 20;
+                } else if (actP1 === 'attack' && actP2 === 'tangkis') {
+                    p1.kt -= 20; spark = true;
+                } else if (actP2 === 'attack' && actP1 === 'tangkis') {
+                    p2.kt -= 20; spark = true;
+                }
+            }
+
+            // Batasi nilai min 0
+            p1.hp = Math.max(0, p1.hp); p2.hp = Math.max(0, p2.hp);
+            p1.kt = Math.max(0, p1.kt); p2.kt = Math.max(0, p2.kt);
+
+            // 4. Update UI & FX
             updateHUD();
-            handleFX(p1M, p2M);
+            if (spark) triggerSpark();
+            
+            await sleep(800); // Waktu pause setelah hit
 
-            await wait(800); // Hold pose
+            // 5. Reset Idle
+            renderChars('idle', 'idle');
+            await sleep(200);
 
-            setAnim(true, 'idle');
-            setAnim(false, 'idle');
-            await wait(200);
-
-            if (p1Stats.hp <= 0 || p2Stats.hp <= 0) break;
-        }
-        resolveRound();
-    }
-
-    function updatePositionLogically(m1, m2) {
-        if (m1 === 'maju' && p1Stats.pos < 5) p1Stats.pos++;
-        if (m1 === 'mundur' && p1Stats.pos > 1) p1Stats.pos--;
-        if (m2 === 'maju' && p2Stats.pos > 1) p2Stats.pos--;
-        if (m2 === 'mundur' && p2Stats.pos < 5) p2Stats.pos++;
-    }
-
-    function calculateDamage(m1, m2) {
-        const dist = Math.abs(p1Stats.pos - p2Stats.pos);
-        const isMelee = dist <= 1;
-
-        if (isMelee) {
-            if (m1 === 'attack' && m2 === 'attack') {
-                p1Stats.hp -= 10; p1Stats.katana -= 10;
-                p2Stats.hp -= 10; p2Stats.katana -= 10;
-            } 
-            else if (m1 === 'attack' && (m2 === 'maju' || m2 === 'mundur')) p2Stats.hp -= 20;
-            else if (m2 === 'attack' && (m1 === 'maju' || m1 === 'mundur')) p1Stats.hp -= 20;
-            else if (m1 === 'attack' && m2 === 'tangkis') p1Stats.katana -= 20;
-            else if (m2 === 'attack' && m1 === 'tangkis') p2Stats.katana -= 20;
+            if (p1.hp <= 0 || p2.hp <= 0) break;
         }
 
-        // Prevent Negative
-        p1Stats.hp = Math.max(0, p1Stats.hp); p2Stats.hp = Math.max(0, p2Stats.hp);
-        p1Stats.katana = Math.max(0, p1Stats.katana); p2Stats.katana = Math.max(0, p2Stats.katana);
+        endRound();
     }
 
-    function handleFX(m1, m2) {
-        const dist = Math.abs(p1Stats.pos - p2Stats.pos);
-        if (dist <= 1 && ((m1 === 'attack' && m2 === 'tangkis') || (m2 === 'attack' && m1 === 'tangkis'))) {
-            sparkEl.classList.add('active');
-            setTimeout(() => sparkEl.classList.remove('active'), 300);
+    function endRound() {
+        let win = false;
+        let lose = false;
+        let draw = false;
+
+        if (p1.hp <= 0 && p2.hp <= 0) draw = true;
+        else if (isHost && p2.hp <= 0) win = true;
+        else if (!isHost && p1.hp <= 0) win = true;
+        else if (isHost && p1.hp <= 0) lose = true;
+        else if (!isHost && p2.hp <= 0) lose = true;
+
+        if (win) showMsg("MENANG!", "green");
+        else if (lose) showMsg("KALAH!", "red");
+        else if (draw) showMsg("SERI!", "yellow");
+        else {
+            showMsg("ROUND NEXT...", "white");
+            setTimeout(resetRound, 2000);
+            return;
         }
+        
+        // Game Over
+        setTimeout(() => location.reload(), 4000);
+    }
+
+    function resetRound() {
+        myMoves = []; enemyMoves = null; isFighting = false;
+        document.getElementById('message-area').innerText = "";
+        document.getElementById('sequence-bar').innerText = "PILIH KOMBINASI...";
+        
+        // Reset Buttons
+        document.querySelectorAll('.action-btn').forEach(b => {
+            b.classList.remove('picked', 'disabled');
+        });
     }
 
     /* --- RENDERING --- */
-    const p1El = document.createElement('div');
-    const p2El = document.createElement('div');
-    p1El.className = 'character owner'; p1El.style.backgroundImage = `url(${ASSETS.idle})`;
-    p2El.className = 'character enemy'; p2El.style.backgroundImage = `url(${ASSETS.idle})`;
+    // Elemen Karakter
+    const char1 = document.createElement('div'); char1.className = 'char-sprite owner-glow';
+    const char2 = document.createElement('div'); char2.className = 'char-sprite enemy-glow';
 
-    function renderCharacters() {
-        document.querySelectorAll('.grid-slot').forEach(s => s.innerHTML = '');
-        
-        let v1 = isHost ? p1Stats.pos : 6 - p1Stats.pos;
-        let v2 = isHost ? p2Stats.pos : 6 - p2Stats.pos;
+    function renderChars(anim1 = 'idle', anim2 = 'idle') {
+        // Clear grid
+        for(let i=1; i<=5; i++) document.getElementById('g'+i).innerHTML = '';
 
-        // Visual Assignment
-        // Jika Host: P1=Owner(Biru), P2=Musuh(Merah)
-        // Jika Client: P2=Owner(Biru), P1=Musuh(Merah) - Kita swap elemennya di grid
-        
-        if(isHost) {
-            document.getElementById(`grid-${v1}`).appendChild(p1El);
-            document.getElementById(`grid-${v2}`).appendChild(p2El);
-            p1El.className = 'character owner';
-            p2El.className = 'character enemy';
+        // Tentukan Posisi Visual
+        let v1, v2;
+        if (isHost) {
+            v1 = p1.pos; 
+            v2 = p2.pos;
+            // Host melihat dirinya (char1) biru, musuh (char2) merah
+            char1.className = 'char-sprite owner-glow';
+            char2.className = 'char-sprite enemy-glow';
         } else {
-            // Di mata Client, P2 adalah diri sendiri (Owner)
-            document.getElementById(`grid-${v2}`).appendChild(p2El);
-            document.getElementById(`grid-${v1}`).appendChild(p1El);
-            p2El.className = 'character owner'; // Client is Owner
-            p1El.className = 'character enemy';
-        }
-    }
+            // Client melihat "terbalik" agar dirinya selalu di kiri (posisi awal)
+            // Logika Grid Client = 6 - Logika Grid Host
+            v1 = 6 - p1.pos; // Posisi Host di mata Client
+            v2 = 6 - p2.pos; // Posisi Client di mata Client
 
-    function setAnim(isP1, act) {
-        const el = isP1 ? p1El : p2El;
-        el.style.backgroundImage = `url(${ASSETS[act] || ASSETS.idle})`;
+            // Client: char2 adalah dirinya (Biru), char1 adalah Host (Merah)
+            char1.className = 'char-sprite enemy-glow';
+            char2.className = 'char-sprite owner-glow';
+        }
+
+        // Set Gambar Animasi
+        char1.style.backgroundImage = `url(${ASSETS[anim1]})`;
+        char2.style.backgroundImage = `url(${ASSETS[anim2]})`;
+
+        // Masukkan ke Grid DOM
+        // P1 selalu char1, P2 selalu char2 secara data, tapi visual ditukar di atas
+        document.getElementById('g'+v1).appendChild(char1);
+        document.getElementById('g'+v2).appendChild(char2);
     }
 
     function updateHUD() {
-        // Logic mapping HUD ke Data
-        // HUD Kiri (p1-*) selalu menampilkan "Self"
-        // HUD Kanan (p2-*) selalu menampilkan "Enemy"
-        
-        let selfStats = isHost ? p1Stats : p2Stats;
-        let enemyStats = isHost ? p2Stats : p1Stats;
+        let statsSelf = isHost ? p1 : p2;
+        let statsEnemy = isHost ? p2 : p1;
 
         // Update Self (Kiri)
-        updateBar('p1', selfStats);
+        document.getElementById('p1-hp').style.width = statsSelf.hp + '%';
+        document.getElementById('p1-hp-txt').innerText = statsSelf.hp;
+        document.getElementById('p1-kt').style.width = statsSelf.kt + '%';
+
         // Update Enemy (Kanan)
-        updateBar('p2', enemyStats);
+        document.getElementById('p2-hp').style.width = statsEnemy.hp + '%';
+        document.getElementById('p2-hp-txt').innerText = statsEnemy.hp;
+        document.getElementById('p2-kt').style.width = statsEnemy.kt + '%';
     }
 
-    function updateBar(prefix, stats) {
-        document.getElementById(`${prefix}-hp-bar`).style.width = stats.hp + '%';
-        document.getElementById(`${prefix}-hp-text`).innerText = stats.hp + ' / 100';
-        
-        document.getElementById(`${prefix}-kt-bar`).style.width = stats.katana + '%';
-        document.getElementById(`${prefix}-kt-text`).innerText = 'Pedang: ' + stats.katana + '%';
+    function triggerSpark() {
+        const el = document.getElementById('spark-fx');
+        el.classList.add('pop');
+        setTimeout(() => el.classList.remove('pop'), 200);
     }
 
-    async function resolveRound() {
-        if (p1Stats.hp <= 0 && p2Stats.hp <= 0) msgEl.innerText = "SERI!";
-        else if ((isHost && p2Stats.hp <= 0) || (!isHost && p1Stats.hp <= 0)) msgEl.innerText = "MENANG!";
-        else if ((isHost && p1Stats.hp <= 0) || (!isHost && p2Stats.hp <= 0)) msgEl.innerText = "KALAH!";
-        else {
-            msgEl.innerText = "NEXT ROUND...";
-            await wait(2000);
-            resetRoundUI();
-            return;
-        }
-        setTimeout(() => location.reload(), 3000);
+    function showMsg(txt, color) {
+        const el = document.getElementById('message-area');
+        el.innerText = txt;
+        el.style.color = color;
     }
 
-    function resetRoundUI() {
-        myMoves = []; enemyMoves = null; turnInProgress = false;
-        msgEl.innerText = "PILIH GERAKAN";
-        document.getElementById('move-seq-text').innerText = "...";
-        document.querySelectorAll('.move-btn').forEach(b => b.classList.remove('selected'));
-    }
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-    function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 </script>
 </body>
 </html>
